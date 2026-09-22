@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dynamic Fish Vertebral Digitizer & Intensity AI Peak Detector</title>
+  <title>Robust Dynamic Fish Vertebral Digitizer & Peak Detector</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
@@ -162,12 +162,6 @@
       color: #38bdf8;
     }
 
-    .floating-btn.active {
-      background: #2563eb;
-      border-color: #3b82f6;
-      color: #fff;
-    }
-
     .banner-instruction {
       position: absolute;
       top: 16px;
@@ -189,7 +183,7 @@
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-cpu-fill text-info fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-success fs-6 ms-2">Real AI Dynamics</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-success fs-6 ms-2">Fixed Guide Engine</span></h5>
     </div>
     <div class="d-flex gap-2 align-items-center">
       <label class="btn btn-sm btn-primary mb-0">
@@ -248,7 +242,7 @@
     </div>
 
     <div class="canvas-wrapper mode-draw" id="canvasWrapper">
-      <div id="bannerInstruction" class="banner-instruction">Click 1: Head/Anterior End | Click 2: Tail/Posterior End</div>
+      <div id="bannerInstruction" class="banner-instruction">Step 1: Click HEAD (Anterior) end of spine. (ESC to cancel)</div>
       <canvas id="imageCanvas"></canvas>
 
       <div class="floating-controls">
@@ -273,7 +267,7 @@
         </div>
 
         <div class="d-flex gap-2">
-          <button class="btn btn-info text-dark fw-bold" onclick="startSpinePlacement()"><i class="bi bi-magic me-1"></i> Scan Spine Path (Intensity AI)</button>
+          <button class="btn btn-info text-dark fw-bold" onclick="startSpinePlacement(event)"><i class="bi bi-magic me-1"></i> Scan Spine Path (Intensity AI)</button>
         </div>
       </div>
     </div>
@@ -297,8 +291,9 @@
     let startPanY = 0;
 
     let draggingPoint = null;
-    let placementStep = 0;
+    let placementStep = 0; // 0: Idle, 1: Waiting for Start, 2: Waiting for End
     let lineStart = null;
+    let currentHoverPos = null;
 
     function setTool(tool) {
       activeTool = tool;
@@ -323,6 +318,7 @@
         img.onload = () => {
           currentImage = img;
           points = [];
+          cancelPlacement();
           resetView();
           updateCounts();
         };
@@ -331,15 +327,32 @@
       reader.readAsDataURL(file);
     }
 
-    function startSpinePlacement() {
+    function startSpinePlacement(e) {
+      if (e) e.stopPropagation(); // Stop click bleeding to canvas
       if (!currentImage) return alert('Please upload an X-ray image first.');
-      setTool('draw');
+      
+      // Force clean state reset
       placementStep = 1;
+      lineStart = null;
+      currentHoverPos = null;
+      setTool('draw');
+
       const banner = document.getElementById('bannerInstruction');
+      banner.innerText = "Step 1: Click HEAD (Anterior) end of spine. (ESC to cancel)";
       banner.style.display = 'block';
     }
 
+    function cancelPlacement() {
+      placementStep = 0;
+      lineStart = null;
+      currentHoverPos = null;
+      document.getElementById('bannerInstruction').style.display = 'none';
+      render();
+    }
+
     function executeIntensityPeakDetection(startPt, endPt) {
+      if (!startPt || !endPt) return;
+
       const canvasOff = document.createElement('canvas');
       canvasOff.width = currentImage.width;
       canvasOff.height = currentImage.height;
@@ -350,6 +363,8 @@
       const dx = endPt.x - startPt.x;
       const dy = endPt.y - startPt.y;
       const length = Math.hypot(dx, dy);
+      if (length < 5) return; // Ignore accidental tiny micro-clicks
+
       const steps = Math.floor(length);
 
       const profile = [];
@@ -389,18 +404,15 @@
       const userTargetCount = parseInt(document.getElementById('targetTotalCount').value);
 
       if (userTargetCount && !isNaN(userTargetCount) && userTargetCount > 0) {
-        // Resample along spine based on user requested target count
         for (let k = 0; k < userTargetCount; k++) {
           const t = k / (userTargetCount - 1);
           const px = startPt.x + t * dx;
           const py = startPt.y + t * dy;
           
-          // Split roughly based on 45% precaudal anatomical boundary
           const isPrecaudal = t <= 0.45;
           points.push({ x: px, y: py, type: isPrecaudal ? 'precaudal' : 'caudal' });
         }
       } else {
-        // Direct pixel intensity profile peaks
         detectedPeaks.forEach((pk) => {
           const isPrecaudal = pk.dist <= 0.45;
           points.push({ x: pk.x, y: pk.y, type: isPrecaudal ? 'precaudal' : 'caudal' });
@@ -423,6 +435,25 @@
       ctx.scale(scale, scale);
 
       ctx.drawImage(currentImage, 0, 0);
+
+      // Draw real-time dynamic guide line preview
+      if (placementStep === 2 && lineStart) {
+        ctx.beginPath();
+        ctx.arc(lineStart.x, lineStart.y, 6 / scale, 0, Math.PI * 2);
+        ctx.fillStyle = '#00ff66';
+        ctx.fill();
+
+        if (currentHoverPos) {
+          ctx.beginPath();
+          ctx.moveTo(lineStart.x, lineStart.y);
+          ctx.lineTo(currentHoverPos.x, currentHoverPos.y);
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2 / scale;
+          ctx.setLineDash([6 / scale, 6 / scale]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
 
       let preIdx = 1;
       let cauIdx = 1;
@@ -483,6 +514,8 @@
     });
 
     window.addEventListener('mousemove', (e) => {
+      const coords = getCanvasCoords(e);
+
       if (isPanning) {
         panX = e.clientX - startPanX;
         panY = e.clientY - startPanY;
@@ -490,8 +523,13 @@
         return;
       }
 
+      if (placementStep === 2) {
+        currentHoverPos = coords;
+        render();
+        return;
+      }
+
       if (draggingPoint !== null) {
-        const coords = getCanvasCoords(e);
         points[draggingPoint].x = coords.x;
         points[draggingPoint].y = coords.y;
         render();
@@ -508,12 +546,17 @@
 
       const coords = getCanvasCoords(e);
 
+      // Handle Step 1
       if (placementStep === 1) {
         lineStart = coords;
         placementStep = 2;
+        const banner = document.getElementById('bannerInstruction');
+        banner.innerText = "Step 2: Click TAIL (Posterior) end of spine. (ESC to cancel)";
+        render();
         return;
       }
 
+      // Handle Step 2
       if (placementStep === 2) {
         const lineEnd = coords;
         placementStep = 0;
@@ -522,9 +565,16 @@
         return;
       }
 
+      // Normal point creation
       points.push({ x: coords.x, y: coords.y, type: mode });
       updateCounts();
       render();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') cancelPlacement();
+      if (e.key === '1') setMode('precaudal');
+      if (e.key === '2') setMode('caudal');
     });
 
     wrapper.addEventListener('wheel', (e) => {
@@ -558,6 +608,7 @@
 
     function clearAll() {
       points = [];
+      cancelPlacement();
       updateCounts();
       render();
     }
