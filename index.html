@@ -526,12 +526,88 @@
     }
 
     // AI Prediction Simulation
-    function runAIAnalysis() {
-      document.getElementById('aiStatus').innerText = 'Analyzing Spine...';
-      setTimeout(() => {
-        document.getElementById('aiStatus').innerText = 'AI Estimated: 12 Pre / 18 Cau';
-      }, 600);
+   // Vision AI Integration
+async function runAIAnalysis() {
+  const statusEl = document.getElementById('aiStatus');
+
+  if (!currentImage) {
+    alert('Please upload an X-ray image first!');
+    return;
+  }
+
+  // Ask for API Key if not already stored
+  let apiKey = localStorage.getItem('openai_api_key');
+  if (!apiKey) {
+    apiKey = prompt('Enter your OpenAI API Key:');
+    if (!apiKey) return;
+    localStorage.setItem('openai_api_key', apiKey);
+  }
+
+  statusEl.innerText = 'Analyzing image with AI...';
+
+  try {
+    // Get base64 image data from canvas
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = currentImage.width;
+    tempCanvas.height = currentImage.height;
+    const tctx = tempCanvas.getContext('2d');
+    tctx.drawImage(currentImage, 0, 0);
+    const base64Image = tempCanvas.toDataURL('image/jpeg').split(',')[1];
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'You are an expert ichthyologist analyzing a fish X-ray. Count the vertebrae using these strict rules:\n1. Exclude the Weberian apparatus (first 4 anterior vertebrae, V1-V4).\n2. Count Precaudal vertebrae (rib-bearing abdominal vertebrae after V4).\n3. Count Caudal vertebrae (hemal spine-bearing vertebrae).\n4. Exclude the terminal urostyle.\n\nRespond ONLY with a raw JSON object formatted like this: {"precaudal": 10, "caudal": 15, "notes": "Any fused vertebrae observed"}'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 300
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.error) {
+      statusEl.innerText = 'Error: ' + data.error.message;
+      return;
     }
+
+    const content = data.choices[0].message.content.trim().replace(/```json|```/g, '');
+    const result = JSON.parse(content);
+
+    // Update Dock Display with real AI estimates
+    document.getElementById('dockPreCount').innerText = result.precaudal;
+    document.getElementById('dockCauCount').innerText = result.caudal;
+
+    const exW = document.getElementById('exWeberian').checked ? 4 : 0;
+    const exU = document.getElementById('exUrostyle').checked ? 1 : 0;
+    document.getElementById('dockTotalCount').innerText = (result.precaudal + result.caudal) - exW - exU;
+
+    statusEl.innerText = `AI Done: ${result.precaudal} Pre / ${result.caudal} Cau (${result.notes || 'No fusions'})`;
+
+  } catch (err) {
+    console.error(err);
+    statusEl.innerText = 'Analysis failed. Check console.';
+  }
+}
 
     function autoPopulateAI() {
       if (!currentImage) return;
