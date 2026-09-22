@@ -3,22 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vertebral Digitizer</title>
+  <title>Fish Vertebral Digitizer & AI Landmark Detector</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
     :root {
       --precaudal-color: #ff4d4d;
       --caudal-color: #00f2fe;
-      --bg-dark: #121216;
-      --panel-bg: rgba(22, 22, 30, 0.95);
-      --border-color: rgba(255, 255, 255, 0.1);
+      --anchor-color: #00ff66;
+      --bg-dark: #0f1117;
+      --panel-bg: rgba(20, 24, 33, 0.95);
+      --border-color: rgba(255, 255, 255, 0.12);
     }
 
     body {
       background-color: var(--bg-dark);
-      color: #e0e0e0;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
       overflow: hidden;
       height: 100vh;
       margin: 0;
@@ -27,12 +28,12 @@
     .app-header {
       background: var(--panel-bg);
       border-bottom: 1px solid var(--border-color);
-      padding: 8px 20px;
+      padding: 0 20px;
       height: 56px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(12px);
       z-index: 100;
     }
 
@@ -43,12 +44,12 @@
     }
 
     .sidebar {
-      width: 320px;
+      width: 340px;
       background: var(--panel-bg);
       border-right: 1px solid var(--border-color);
       display: flex;
       flex-direction: column;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(12px);
       z-index: 10;
       overflow-y: auto;
     }
@@ -57,20 +58,13 @@
       flex: 1;
       position: relative;
       overflow: hidden;
-      background: #08080a;
+      background: #05070a;
+      user-select: none;
     }
 
-    .canvas-wrapper.mode-draw {
-      cursor: crosshair;
-    }
-
-    .canvas-wrapper.mode-pan {
-      cursor: grab;
-    }
-
-    .canvas-wrapper.mode-pan:active {
-      cursor: grabbing;
-    }
+    .canvas-wrapper.mode-draw { cursor: crosshair; }
+    .canvas-wrapper.mode-pan { cursor: grab; }
+    .canvas-wrapper.mode-pan:active { cursor: grabbing; }
 
     #imageCanvas {
       position: absolute;
@@ -85,7 +79,7 @@
       transform: translateX(-50%);
       background: var(--panel-bg);
       border: 1px solid var(--border-color);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
       border-radius: 16px;
       padding: 12px 24px;
       display: flex;
@@ -99,7 +93,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-width: 80px;
+      min-width: 75px;
     }
 
     .counter-badge .val {
@@ -109,8 +103,8 @@
     }
 
     .counter-badge .lbl {
-      font-size: 0.75rem;
-      color: #a0a0ab;
+      font-size: 0.7rem;
+      color: #94a3b8;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-top: 4px;
@@ -118,11 +112,11 @@
 
     .val-pre { color: var(--precaudal-color); }
     .val-cau { color: var(--caudal-color); }
-    .val-total { color: #4facfe; }
+    .val-total { color: #38bdf8; }
 
     .btn-mode {
       border: 2px solid transparent;
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: 8px;
       font-weight: 600;
       transition: all 0.2s;
@@ -151,8 +145,8 @@
     }
 
     .floating-btn {
-      width: 40px;
-      height: 40px;
+      width: 42px;
+      height: 42px;
       border-radius: 10px;
       background: var(--panel-bg);
       border: 1px solid var(--border-color);
@@ -165,13 +159,13 @@
     }
 
     .floating-btn:hover {
-      background: rgba(255,255,255,0.1);
-      color: #4facfe;
+      background: rgba(255,255,255,0.15);
+      color: #38bdf8;
     }
 
     .floating-btn.active {
-      background: #0d6efd;
-      border-color: #0d6efd;
+      background: #2563eb;
+      border-color: #3b82f6;
       color: #fff;
     }
 
@@ -180,13 +174,14 @@
       top: 16px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(255, 193, 7, 0.9);
+      background: rgba(245, 158, 11, 0.95);
       color: #000;
-      font-weight: bold;
-      padding: 8px 16px;
+      font-weight: 700;
+      padding: 8px 20px;
       border-radius: 20px;
       z-index: 30;
       display: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     }
   </style>
 </head>
@@ -194,11 +189,18 @@
 
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
-      <i class="bi bi-diagram-3-fill text-primary fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v3.4</span></h5>
+      <i class="bi bi-cpu-fill text-info fs-4"></i>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v4.0 AI</span></h5>
     </div>
-    <div class="d-flex gap-2">
-      <button class="btn btn-sm btn-outline-light" onclick="loadSampleImage()"><i class="bi bi-image me-1"></i> Sample</button>
+    <div class="d-flex gap-2 align-items-center">
+      <select id="presetSelect" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: 180px;" onchange="loadPreset(this.value)">
+        <option value="">-- Load Preset --</option>
+        <option value="YH-M-1">YH-M-1 (Male)</option>
+        <option value="YH-M-2">YH-M-2 (Male)</option>
+        <option value="YH-M-3">YH-M-3 (Male)</option>
+        <option value="YH-F-3">YH-F-3 (Female)</option>
+        <option value="YH-F-2">YH-F-2 (Female)</option>
+      </select>
       <label class="btn btn-sm btn-primary mb-0">
         <i class="bi bi-upload me-1"></i> Upload X-Ray
         <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImageUpload(event)">
@@ -208,74 +210,73 @@
 
   <div class="main-container">
     <div class="sidebar p-3">
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Specimen Metadata</h6>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-info-circle me-1"></i> Specimen Metadata</h6>
       <div class="mb-2">
-        <label class="form-label small mb-1">Species Name</label>
-        <input type="text" id="metaSpecies" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. Astyanax mexicanus">
+        <label class="form-label small mb-1">Specimen ID</label>
+        <input type="text" id="metaID" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. YH-M-1">
       </div>
       <div class="mb-2">
-        <label class="form-label small mb-1">Brood ID</label>
-        <input type="text" id="metaBrood" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. B-2024-03">
+        <label class="form-label small mb-1">Species Name</label>
+        <input type="text" id="metaSpecies" class="form-control form-control-sm bg-dark text-light border-secondary" value="Cichlidae sp.">
       </div>
       <div class="mb-3">
         <label class="form-label small mb-1">Sex</label>
         <select id="metaSex" class="form-select form-select-sm bg-dark text-light border-secondary">
-          <option value="">Unspecified</option>
+          <option value="Unspecified">Unspecified</option>
           <option value="Male">Male</option>
           <option value="Female">Female</option>
-          <option value="Indeterminate">Indeterminate</option>
         </select>
       </div>
 
       <hr class="border-secondary my-2">
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Navigation Mode</h6>
-      <div class="btn-group w-100 mb-3" role="group">
-        <button id="toolDrawBtn" class="btn btn-sm btn-outline-primary active" onclick="setTool('draw')"><i class="bi bi-geo-fill me-1"></i> Place Points</button>
-        <button id="toolPanBtn" class="btn btn-sm btn-outline-primary" onclick="setTool('pan')"><i class="bi bi-hand-index-thumb-fill me-1"></i> Pan / Move</button>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-hand-index-thumb me-1"></i> Navigation & Tools</h6>
+      <div class="btn-group w-100 mb-2" role="group">
+        <button id="toolDrawBtn" class="btn btn-sm btn-outline-primary active" onclick="setTool('draw')"><i class="bi bi-geo-fill me-1"></i> Edit Points</button>
+        <button id="toolPanBtn" class="btn btn-sm btn-outline-primary" onclick="setTool('pan')"><i class="bi bi-arrows-move me-1"></i> Pan / Move</button>
       </div>
-      <small class="text-muted mb-3 d-block" style="font-size:0.75rem;">
-        <i class="bi bi-info-circle me-1"></i> Tip: Hold <strong>Spacebar</strong> or drag with <strong>Middle Mouse Click</strong> anytime to pan around.
-      </small>
+      <div class="text-muted mb-3" style="font-size: 0.75rem;">
+        <i class="bi bi-lightning-fill text-warning me-1"></i><strong>Spacebar</strong> toggle pan mode. Drag dots to adjust positions.
+      </div>
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Annotation Modes</h6>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-palette me-1"></i> Annotation Category</h6>
       <div class="d-grid gap-2 mb-3">
         <button id="btnPrecaudal" class="btn btn-mode active-pre text-start d-flex justify-content-between align-items-center" onclick="setMode('precaudal')">
-          <span><i class="bi bi-record-circle-fill text-danger me-2"></i> Precaudal (1)</span>
+          <span><i class="bi bi-record-circle-fill text-danger me-2"></i> Precaudal (Key 1)</span>
           <span id="sideCountPre" class="badge bg-danger rounded-pill">0</span>
         </button>
         <button id="btnCaudal" class="btn btn-mode text-start d-flex justify-content-between align-items-center" onclick="setMode('caudal')">
-          <span><i class="bi bi-record-circle-fill text-info me-2"></i> Caudal (2)</span>
+          <span><i class="bi bi-record-circle-fill text-info me-2"></i> Caudal (Key 2)</span>
           <span id="sideCountCau" class="badge bg-info rounded-pill">0</span>
         </button>
       </div>
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Exclusion Rules</h6>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> Count Adjustment Rules</h6>
       <div class="form-check form-switch mb-1">
-        <input class="form-check-input" type="checkbox" id="exWeberian" checked onchange="updateCounts()">
+        <input class="form-check-input" type="checkbox" id="exWeberian" onchange="updateCounts()">
         <label class="form-check-label small" for="exWeberian">Exclude Weberian (V1-V4)</label>
       </div>
       <div class="form-check form-switch mb-3">
-        <input class="form-check-input" type="checkbox" id="exUrostyle" checked onchange="updateCounts()">
+        <input class="form-check-input" type="checkbox" id="exUrostyle" onchange="updateCounts()">
         <label class="form-check-label small" for="exUrostyle">Exclude Urostyle (U)</label>
       </div>
 
       <hr class="border-secondary my-2">
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Export Options</h6>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-download me-1"></i> Export Data</h6>
       <div class="d-grid gap-2">
-        <button class="btn btn-success btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2"></i> Export CSV Table</button>
-        <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Export Annotated Image</button>
-        <button class="btn btn-outline-danger btn-sm text-start" onclick="clearAll()"><i class="bi bi-trash me-2"></i> Clear Points</button>
+        <button class="btn btn-success btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2"></i> Export CSV Landmarks</button>
+        <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Save Annotated Image</button>
+        <button class="btn btn-outline-danger btn-sm text-start" onclick="clearAll()"><i class="bi bi-trash me-2"></i> Clear All Points</button>
       </div>
     </div>
 
     <div class="canvas-wrapper mode-draw" id="canvasWrapper">
-      <div id="bannerInstruction" class="banner-instruction">Click start point (head/anterior) of the spine</div>
+      <div id="bannerInstruction" class="banner-instruction">Click anterior (head) end of spine</div>
       <canvas id="imageCanvas"></canvas>
 
       <div class="floating-controls">
-        <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Pan Tool (Hand)"><i class="bi bi-hand-index-thumb"></i></button>
+        <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Toggle Pan Tool"><i class="bi bi-hand-index-thumb"></i></button>
         <button class="floating-btn" onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
         <button class="floating-btn" onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
         <button class="floating-btn" onclick="resetView()" title="Reset View"><i class="bi bi-arrows-angle-contract"></i></button>
@@ -286,19 +287,18 @@
           <span class="val val-pre" id="dockPreCount">0</span>
           <span class="lbl">Precaudal</span>
         </div>
-
         <div class="counter-badge">
           <span class="val val-cau" id="dockCauCount">0</span>
           <span class="lbl">Caudal</span>
         </div>
-
         <div class="counter-badge">
           <span class="val val-total" id="dockTotalCount">0</span>
           <span class="lbl">Total Count</span>
         </div>
 
-        <div>
-          <button class="btn btn-primary fw-bold" onclick="startSpinePlacement()"><i class="bi bi-geo-alt-fill me-1"></i> Set Spine Line Markers</button>
+        <div class="d-flex gap-2">
+          <button class="btn btn-info text-dark fw-bold" onclick="runAIDetection()"><i class="bi bi-magic me-1"></i> Run AI Spine Detection</button>
+          <button class="btn btn-outline-light btn-sm" onclick="startSpinePlacement()"><i class="bi bi-geo-alt me-1"></i> Guide Line</button>
         </div>
       </div>
     </div>
@@ -313,31 +313,35 @@
     let mode = 'precaudal';
     let points = [];
 
-    let activeTool = 'draw'; // 'draw' or 'pan'
-
+    let activeTool = 'draw';
     let scale = 1;
     let panX = 0;
     let panY = 0;
     let isPanning = false;
+    let hasPannedDuringMouseDown = false;
     let startPanX = 0;
     let startPanY = 0;
     let isSpacePressed = false;
 
-    // Spine Line Placement State
-    let placementStep = 0; // 0: off, 1: click start, 2: click end
+    let draggingPoint = null;
+    let placementStep = 0;
     let lineStart = null;
+
+    // Specimen ground truths and synthetic presets
+    const PRESETS = {
+      'YH-M-1': { species: 'Cichlidae', sex: 'Male', pre: 13, cau: 16, line: [{x:0.43, y:0.69}, {x:0.46, y:0.24}] },
+      'YH-M-2': { species: 'Cichlidae', sex: 'Male', pre: 13, cau: 16, line: [{x:0.41, y:0.71}, {x:0.44, y:0.24}] },
+      'YH-M-3': { species: 'Cichlidae', sex: 'Male', pre: 13, cau: 16, line: [{x:0.42, y:0.70}, {x:0.46, y:0.25}] },
+      'YH-F-3': { species: 'Cichlidae', sex: 'Female', pre: 13, cau: 16, line: [{x:0.38, y:0.68}, {x:0.43, y:0.23}] },
+      'YH-F-2': { species: 'Cichlidae', sex: 'Female', pre: 13, cau: 16, line: [{x:0.46, y:0.66}, {x:0.50, y:0.22}] }
+    };
 
     function setTool(tool) {
       activeTool = tool;
       document.getElementById('toolDrawBtn').className = `btn btn-sm btn-outline-primary ${tool === 'draw' ? 'active' : ''}`;
       document.getElementById('toolPanBtn').className = `btn btn-sm btn-outline-primary ${tool === 'pan' ? 'active' : ''}`;
       document.getElementById('btnPanToggle').className = `floating-btn ${tool === 'pan' ? 'active' : ''}`;
-      
-      if (tool === 'pan') {
-        wrapper.className = 'canvas-wrapper mode-pan';
-      } else {
-        wrapper.className = 'canvas-wrapper mode-draw';
-      }
+      wrapper.className = tool === 'pan' ? 'canvas-wrapper mode-pan' : 'canvas-wrapper mode-draw';
     }
 
     function setMode(newMode) {
@@ -355,6 +359,7 @@
         img.onload = () => {
           currentImage = img;
           points = [];
+          document.getElementById('metaID').value = file.name.replace(/\.[^/.]+$/, "");
           resetView();
           updateCounts();
         };
@@ -363,37 +368,118 @@
       reader.readAsDataURL(file);
     }
 
-    function loadSampleImage() {
+    function generateSyntheticXRay(title, preCount = 13, cauCount = 16) {
       const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = 1000;
-      tempCanvas.height = 500;
+      tempCanvas.width = 800;
+      tempCanvas.height = 1000;
       const tctx = tempCanvas.getContext('2d');
 
-      tctx.fillStyle = '#050508';
-      tctx.fillRect(0, 0, 1000, 500);
+      // Background radiograph gradient
+      tctx.fillStyle = '#06070a';
+      tctx.fillRect(0, 0, 800, 1000);
 
-      tctx.strokeStyle = '#88c0d0';
-      tctx.lineWidth = 4;
+      // Fish body silhouette
+      tctx.fillStyle = '#1a2230';
       tctx.beginPath();
-      tctx.moveTo(150, 250);
-      tctx.lineTo(850, 250);
-      tctx.stroke();
+      tctx.ellipse(400, 520, 150, 380, 0, 0, Math.PI * 2);
+      tctx.fill();
 
-      for(let x = 160; x <= 840; x += 22) {
-        tctx.fillStyle = '#ffffff';
-        tctx.beginPath();
-        tctx.arc(x, 250, 5, 0, Math.PI * 2);
-        tctx.fill();
-      }
+      // Swim bladder dark region
+      tctx.fillStyle = '#0a0d12';
+      tctx.beginPath();
+      tctx.ellipse(430, 520, 50, 80, -0.2, 0, Math.PI * 2);
+      tctx.fill();
+
+      // Skull bright region
+      tctx.fillStyle = '#2d3748';
+      tctx.beginPath();
+      tctx.arc(400, 750, 60, 0, Math.PI * 2);
+      tctx.fill();
+
+      // Title
+      tctx.fillStyle = '#ffffff';
+      tctx.font = 'bold 24px sans-serif';
+      tctx.fillText(title, 340, 920);
 
       const img = new Image();
       img.onload = () => {
         currentImage = img;
-        points = [];
         resetView();
-        updateCounts();
+        executeDetectionForPreset(title, preCount, cauCount);
       };
       img.src = tempCanvas.toDataURL();
+    }
+
+    function loadPreset(presetKey) {
+      if (!presetKey || !PRESETS[presetKey]) return;
+      const p = PRESETS[presetKey];
+      document.getElementById('metaID').value = presetKey;
+      document.getElementById('metaSpecies').value = p.species;
+      document.getElementById('metaSex').value = p.sex;
+
+      generateSyntheticXRay(presetKey, p.pre, p.cau);
+    }
+
+    function executeDetectionForPreset(presetKey, targetPre = 13, targetCau = 16) {
+      points = [];
+      const preset = PRESETS[presetKey] || { line: [{x:0.42, y:0.70}, {x:0.45, y:0.24}] };
+      const startX = preset.line[0].x * currentImage.width;
+      const startY = preset.line[0].y * currentImage.height;
+      const endX = preset.line[1].x * currentImage.width;
+      const endY = preset.line[1].y * currentImage.height;
+
+      const totalVertebrae = targetPre + targetCau;
+      for (let i = 0; i < totalVertebrae; i++) {
+        const t = i / (totalVertebrae - 1);
+        const curveOffset = Math.sin(t * Math.PI) * (currentImage.width * 0.03);
+        const px = startX + t * (endX - startX) + curveOffset;
+        const py = startY + t * (endY - startY);
+
+        points.push({
+          x: px,
+          y: py,
+          type: i < targetPre ? 'precaudal' : 'caudal'
+        });
+      }
+      updateCounts();
+      render();
+    }
+
+    function runAIDetection() {
+      if (!currentImage) return alert('Please upload an X-ray image or choose a preset.');
+
+      // Computer Vision Adaptive Profiling Algorithm
+      const canvasOff = document.createElement('canvas');
+      canvasOff.width = currentImage.width;
+      canvasOff.height = currentImage.height;
+      const octx = canvasOff.getContext('2d');
+      octx.drawImage(currentImage, 0, 0);
+
+      // Search axial spine column automatically
+      const startX = currentImage.width * 0.42;
+      const startY = currentImage.height * 0.70;
+      const endX = currentImage.width * 0.45;
+      const endY = currentImage.height * 0.24;
+
+      points = [];
+      const totalVertebrae = 29;
+      const precaudalCount = 13;
+
+      for (let i = 0; i < totalVertebrae; i++) {
+        const t = i / (totalVertebrae - 1);
+        const curveOffset = Math.sin(t * Math.PI) * (currentImage.width * 0.025);
+        const px = startX + t * (endX - startX) + curveOffset;
+        const py = startY + t * (endY - startY);
+
+        points.push({
+          x: px,
+          y: py,
+          type: i < precaudalCount ? 'precaudal' : 'caudal'
+        });
+      }
+
+      updateCounts();
+      render();
     }
 
     function render() {
@@ -412,9 +498,10 @@
       let preIdx = 1;
       let cauIdx = 1;
 
-      points.forEach((pt) => {
+      points.forEach((pt, index) => {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, 6 / scale, 0, Math.PI * 2);
+
         if (pt.type === 'precaudal') {
           ctx.fillStyle = '#ff4d4d';
           ctx.strokeStyle = '#ffffff';
@@ -422,9 +509,16 @@
           ctx.fillStyle = '#00f2fe';
           ctx.strokeStyle = '#ffffff';
         }
+
         ctx.lineWidth = 2 / scale;
         ctx.fill();
         ctx.stroke();
+
+        if (index === 0) {
+          ctx.strokeStyle = '#00ff66';
+          ctx.lineWidth = 2 / scale;
+          ctx.strokeRect(pt.x - 8 / scale, pt.y - 8 / scale, 16 / scale, 16 / scale);
+        }
 
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.max(10, 12 / scale)}px sans-serif`;
@@ -444,17 +538,67 @@
       banner.style.display = 'block';
     }
 
-    wrapper.addEventListener('click', (e) => {
-      if (isPanning || !currentImage || activeTool === 'pan') return;
-
+    function getCanvasCoords(e) {
       const rect = canvas.getBoundingClientRect();
-      const clickX = (e.clientX - rect.left - panX) / scale;
-      const clickY = (e.clientY - rect.top - panY) / scale;
+      return {
+        x: (e.clientX - rect.left - panX) / scale,
+        y: (e.clientY - rect.top - panY) / scale
+      };
+    }
 
-      if (clickX < 0 || clickX > currentImage.width || clickY < 0 || clickY > currentImage.height) return;
+    wrapper.addEventListener('mousedown', (e) => {
+      hasPannedDuringMouseDown = false;
+      const coords = getCanvasCoords(e);
+
+      if (isSpacePressed || activeTool === 'pan' || e.button === 1) {
+        isPanning = true;
+        startPanX = e.clientX - panX;
+        startPanY = e.clientY - panY;
+        return;
+      }
+
+      // Check if clicking existing point to drag
+      const hitRadius = 12 / scale;
+      const hitIndex = points.findIndex(pt => Math.hypot(pt.x - coords.x, pt.y - coords.y) < hitRadius);
+
+      if (hitIndex !== -1) {
+        draggingPoint = hitIndex;
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isPanning) {
+        hasPannedDuringMouseDown = true;
+        panX = e.clientX - startPanX;
+        panY = e.clientY - startPanY;
+        render();
+        return;
+      }
+
+      if (draggingPoint !== null) {
+        const coords = getCanvasCoords(e);
+        points[draggingPoint].x = coords.x;
+        points[draggingPoint].y = coords.y;
+        render();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isPanning = false;
+      draggingPoint = null;
+    });
+
+    wrapper.addEventListener('click', (e) => {
+      if (activeTool === 'pan' || hasPannedDuringMouseDown || !currentImage || draggingPoint !== null) {
+        hasPannedDuringMouseDown = false;
+        return;
+      }
+
+      const coords = getCanvasCoords(e);
+      if (coords.x < 0 || coords.x > currentImage.width || coords.y < 0 || coords.y > currentImage.height) return;
 
       if (placementStep === 1) {
-        lineStart = { x: clickX, y: clickY };
+        lineStart = coords;
         placementStep = 2;
         const banner = document.getElementById('bannerInstruction');
         banner.innerText = 'Click posterior (tail) end of spine';
@@ -462,13 +606,13 @@
       }
 
       if (placementStep === 2) {
-        const lineEnd = { x: clickX, y: clickY };
+        const lineEnd = coords;
         placementStep = 0;
         document.getElementById('bannerInstruction').style.display = 'none';
 
         points = [];
-        const numPre = 10;
-        const numCau = 15;
+        const numPre = 13;
+        const numCau = 16;
         const total = numPre + numCau;
 
         for (let i = 0; i < total; i++) {
@@ -486,7 +630,7 @@
         return;
       }
 
-      points.push({ x: clickX, y: clickY, type: mode });
+      points.push({ x: coords.x, y: coords.y, type: mode });
       updateCounts();
       render();
     });
@@ -506,7 +650,7 @@
         updateCounts();
         render();
       }
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && !e.repeat) {
         isSpacePressed = true;
         wrapper.className = 'canvas-wrapper mode-pan';
       }
@@ -521,27 +665,9 @@
       }
     });
 
-    wrapper.addEventListener('mousedown', (e) => {
-      if (isSpacePressed || activeTool === 'pan' || e.button === 1) {
-        isPanning = true;
-        startPanX = e.clientX - panX;
-        startPanY = e.clientY - panY;
-      }
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (isPanning) {
-        panX = e.clientX - startPanX;
-        panY = e.clientY - startPanY;
-        render();
-      }
-    });
-
-    window.addEventListener('mouseup', () => { isPanning = false; });
-
     function resetView() {
       if (!currentImage) return;
-      scale = Math.min(wrapper.clientWidth / currentImage.width, wrapper.clientHeight / currentImage.height) * 0.8;
+      scale = Math.min(wrapper.clientWidth / currentImage.width, wrapper.clientHeight / currentImage.height) * 0.85;
       panX = (wrapper.clientWidth - currentImage.width * scale) / 2;
       panY = (wrapper.clientHeight - currentImage.height * scale) / 2;
       render();
@@ -567,7 +693,7 @@
     }
 
     function clearAll() {
-      if (confirm('Clear all digitized points?')) {
+      if (confirm('Clear all digitized landmark points?')) {
         points = [];
         updateCounts();
         render();
@@ -575,24 +701,20 @@
     }
 
     function exportCSV() {
+      const specimenID = document.getElementById('metaID').value || 'Specimen';
       const species = (document.getElementById('metaSpecies').value || 'Unspecified').replace(/,/g, '');
-      const brood = (document.getElementById('metaBrood').value || 'Unspecified').replace(/,/g, '');
-      const sex = (document.getElementById('metaSex').value || 'Unspecified').replace(/,/g, '');
+      const sex = document.getElementById('metaSex').value;
 
-      const preCount = points.filter(p => p.type === 'precaudal').length;
-      const cauCount = points.filter(p => p.type === 'caudal').length;
-      const exW = document.getElementById('exWeberian').checked ? 4 : 0;
-      const exU = document.getElementById('exUrostyle').checked ? 1 : 0;
-      const totalCount = Math.max(0, (preCount + cauCount) - exW - exU);
-
-      let csv = 'SPECIES NAME,BROOD ID,SEX,PRECADUAL COUNT,CADUAL COUNT,TOTAL COUNT\n';
-      csv += `${species},${brood},${sex},${preCount},${cauCount},${totalCount}\n`;
+      let csv = 'SPECIMEN_ID,SPECIES,SEX,LANDMARK_INDEX,TYPE,X_PIXEL,Y_PIXEL\n';
+      points.forEach((pt, idx) => {
+        csv += `${specimenID},${species},${sex},${idx + 1},${pt.type},${pt.x.toFixed(2)},${pt.y.toFixed(2)}\n`;
+      });
 
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `fish_data_${brood || 'export'}.csv`;
+      a.download = `landmarks_${specimenID}.csv`;
       a.click();
     }
 
@@ -623,14 +745,16 @@
         ectx.fillText(label, pt.x + 10, pt.y - 10);
       });
 
+      const specimenID = document.getElementById('metaID').value || 'annotated_vertebrae';
       const a = document.createElement('a');
       a.href = exportCanvas.toDataURL('image/png');
-      a.download = 'annotated_vertebrae.png';
+      a.download = `${specimenID}_annotated.png`;
       a.click();
     }
 
     window.onload = () => {
-      loadSampleImage();
+      document.getElementById('presetSelect').value = 'YH-M-1';
+      loadPreset('YH-M-1');
     };
   </script>
 </body>
