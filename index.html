@@ -43,7 +43,7 @@
     }
 
     .sidebar {
-      width: 340px;
+      width: 360px;
       background: var(--panel-bg);
       border-right: 1px solid var(--border-color);
       display: flex;
@@ -176,6 +176,14 @@
       display: none;
       box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     }
+
+    #graphCanvas {
+      width: 100%;
+      height: 120px;
+      background: #090c10;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -183,7 +191,7 @@
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-cpu-fill text-info fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-success fs-6 ms-2">Fixed Guide Engine</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-success fs-6 ms-2">Dynamic Signal Engine</span></h5>
     </div>
     <div class="d-flex gap-2 align-items-center">
       <label class="btn btn-sm btn-primary mb-0">
@@ -195,21 +203,38 @@
 
   <div class="main-container">
     <div class="sidebar p-3">
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> AI Peak Sensitivity</h6>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> AI Dynamic Peak Sensitivity</h6>
       
       <div class="mb-3">
-        <label class="form-label small mb-1">Axial Node Spacing Sensitivity: <span id="sensitivityVal">22px</span></label>
-        <input type="range" class="form-range" id="sensitivitySlider" min="10" max="45" value="22" oninput="document.getElementById('sensitivityVal').innerText=this.value+'px'">
+        <label class="form-label small mb-1 d-flex justify-content-between">
+          <span>Min Peak Distance (Window):</span>
+          <span id="sensitivityVal" class="fw-bold text-info">15 px</span>
+        </label>
+        <input type="range" class="form-range" id="sensitivitySlider" min="5" max="40" value="15" oninput="updateSensitivity(this.value)">
       </div>
 
       <div class="mb-3">
-        <label class="form-label small mb-1">Target Total Vertebrae Count Override</label>
-        <div class="input-group input-group-sm">
-          <span class="input-group-text bg-dark text-light border-secondary">Nodes</span>
-          <input type="number" id="targetTotalCount" class="form-control bg-dark text-light border-secondary" value="29">
-        </div>
-        <div class="form-text text-muted" style="font-size: 0.7rem;">Leave empty for fully unconstrained pixel peak detection.</div>
+        <label class="form-label small mb-1 d-flex justify-content-between">
+          <span>Peak Prominence Threshold:</span>
+          <span id="prominenceVal" class="fw-bold text-info">12</span>
+        </label>
+        <input type="range" class="form-range" id="prominenceSlider" min="1" max="50" value="12" oninput="updateProminence(this.value)">
       </div>
+
+      <hr class="border-secondary my-2">
+
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-diagram-3-fill me-1"></i> Anatomical Boundary Split</h6>
+      <div class="mb-3">
+        <label class="form-label small mb-1 d-flex justify-content-between">
+          <span>Precaudal Nodes Split Point:</span>
+          <span id="precaudalCountVal" class="fw-bold text-danger">10</span>
+        </label>
+        <input type="range" class="form-range" id="precaudalSplitSlider" min="1" max="30" value="10" oninput="updatePrecaudalSplit(this.value)">
+        <div class="form-text text-muted" style="font-size: 0.7rem;">Adjusts the exact node index where Precaudal transitions to Caudal.</div>
+      </div>
+
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-1"><i class="bi bi-graph-up me-1"></i> Intensity Peak Profile Profile</h6>
+      <canvas id="graphCanvas" class="mb-2"></canvas>
 
       <hr class="border-secondary my-2">
 
@@ -267,7 +292,7 @@
         </div>
 
         <div class="d-flex gap-2">
-          <button class="btn btn-info text-dark fw-bold" onclick="startSpinePlacement(event)"><i class="bi bi-magic me-1"></i> Scan Spine Path (Intensity AI)</button>
+          <button class="btn btn-info text-dark fw-bold" onclick="startSpinePlacement(event)"><i class="bi bi-magic me-1"></i> Scan Spine Path (Signal AI)</button>
         </div>
       </div>
     </div>
@@ -277,6 +302,9 @@
     const canvas = document.getElementById('imageCanvas');
     const ctx = canvas.getContext('2d');
     const wrapper = document.getElementById('canvasWrapper');
+
+    const graphCanvas = document.getElementById('graphCanvas');
+    const gctx = graphCanvas.getContext('2d');
 
     let currentImage = null;
     let mode = 'precaudal';
@@ -291,9 +319,14 @@
     let startPanY = 0;
 
     let draggingPoint = null;
-    let placementStep = 0; // 0: Idle, 1: Waiting for Start, 2: Waiting for End
+    let placementStep = 0; // 0: Idle, 1: Waiting for Head Click, 2: Waiting for Tail Click
     let lineStart = null;
+    let lineEnd = null;
     let currentHoverPos = null;
+
+    let intensityProfile = [];
+    let detectedPeakIndices = [];
+    let precaudalBoundaryIndex = 10;
 
     function setTool(tool) {
       activeTool = tool;
@@ -328,12 +361,12 @@
     }
 
     function startSpinePlacement(e) {
-      if (e) e.stopPropagation(); // Stop click bleeding to canvas
+      if (e) e.stopPropagation();
       if (!currentImage) return alert('Please upload an X-ray image first.');
       
-      // Force clean state reset
       placementStep = 1;
       lineStart = null;
+      lineEnd = null;
       currentHoverPos = null;
       setTool('draw');
 
@@ -350,8 +383,30 @@
       render();
     }
 
+    function updateSensitivity(val) {
+      document.getElementById('sensitivityVal').innerText = val + ' px';
+      if (lineStart && lineEnd) processIntensityProfile();
+    }
+
+    function updateProminence(val) {
+      document.getElementById('prominenceVal').innerText = val;
+      if (lineStart && lineEnd) processIntensityProfile();
+    }
+
+    function updatePrecaudalSplit(val) {
+      precaudalBoundaryIndex = parseInt(val);
+      document.getElementById('precaudalCountVal').innerText = precaudalBoundaryIndex;
+      reclassifyPoints();
+    }
+
     function executeIntensityPeakDetection(startPt, endPt) {
-      if (!startPt || !endPt) return;
+      lineStart = startPt;
+      lineEnd = endPt;
+      processIntensityProfile();
+    }
+
+    function processIntensityProfile() {
+      if (!lineStart || !lineEnd || !currentImage) return;
 
       const canvasOff = document.createElement('canvas');
       canvasOff.width = currentImage.width;
@@ -360,18 +415,18 @@
       octx.drawImage(currentImage, 0, 0);
       const imgData = octx.getImageData(0, 0, currentImage.width, currentImage.height);
 
-      const dx = endPt.x - startPt.x;
-      const dy = endPt.y - startPt.y;
+      const dx = lineEnd.x - lineStart.x;
+      const dy = lineEnd.y - lineStart.y;
       const length = Math.hypot(dx, dy);
-      if (length < 5) return; // Ignore accidental tiny micro-clicks
+      if (length < 10) return;
 
       const steps = Math.floor(length);
+      const rawProfile = [];
 
-      const profile = [];
       for (let s = 0; s <= steps; s++) {
         const t = s / steps;
-        const px = Math.round(startPt.x + t * dx);
-        const py = Math.round(startPt.y + t * dy);
+        const px = Math.round(lineStart.x + t * dx);
+        const py = Math.round(lineStart.y + t * dy);
 
         if (px >= 0 && px < currentImage.width && py >= 0 && py < currentImage.height) {
           const idx = (py * currentImage.width + px) * 4;
@@ -379,48 +434,140 @@
           const g = imgData.data[idx + 1];
           const b = imgData.data[idx + 2];
           const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-          profile.push({ x: px, y: py, luminance, dist: t });
+          rawProfile.push({ x: px, y: py, luminance, t });
         }
       }
 
-      const windowSize = parseInt(document.getElementById('sensitivitySlider').value);
-      const detectedPeaks = [];
+      // Smooth Signal using Moving Average
+      const smoothWindow = 3;
+      intensityProfile = rawProfile.map((item, idx, arr) => {
+        let sum = 0;
+        let count = 0;
+        for (let w = -smoothWindow; w <= smoothWindow; w++) {
+          if (idx + w >= 0 && idx + w < arr.length) {
+            sum += arr[idx + w].luminance;
+            count++;
+          }
+        }
+        return { ...item, smoothLuminance: sum / count };
+      });
 
-      for (let i = windowSize; i < profile.length - windowSize; i++) {
+      // True Signal Peak Detection
+      const minDistance = parseInt(document.getElementById('sensitivitySlider').value);
+      const prominenceThreshold = parseInt(document.getElementById('prominenceSlider').value);
+
+      detectedPeakIndices = [];
+
+      for (let i = minDistance; i < intensityProfile.length - minDistance; i++) {
+        const currentVal = intensityProfile[i].smoothLuminance;
         let isLocalMax = true;
-        for (let w = -windowSize; w <= windowSize; w++) {
-          if (w !== 0 && profile[i + w].luminance > profile[i].luminance) {
+
+        for (let w = -minDistance; w <= minDistance; w++) {
+          if (w !== 0 && intensityProfile[i + w].smoothLuminance >= currentVal) {
             isLocalMax = false;
             break;
           }
         }
+
         if (isLocalMax) {
-          detectedPeaks.push(profile[i]);
-          i += Math.floor(windowSize / 2);
+          // Check Prominence (height difference from surrounding local minima)
+          let leftMin = currentVal;
+          let rightMin = currentVal;
+          for (let w = 1; w <= minDistance; w++) {
+            leftMin = Math.min(leftMin, intensityProfile[i - w].smoothLuminance);
+            rightMin = Math.min(rightMin, intensityProfile[i + w].smoothLuminance);
+          }
+          const prominence = currentVal - Math.max(leftMin, rightMin);
+
+          if (prominence >= prominenceThreshold) {
+            detectedPeakIndices.push(i);
+            i += Math.floor(minDistance / 2);
+          }
         }
       }
 
-      points = [];
-      const userTargetCount = parseInt(document.getElementById('targetTotalCount').value);
-
-      if (userTargetCount && !isNaN(userTargetCount) && userTargetCount > 0) {
-        for (let k = 0; k < userTargetCount; k++) {
-          const t = k / (userTargetCount - 1);
-          const px = startPt.x + t * dx;
-          const py = startPt.y + t * dy;
-          
-          const isPrecaudal = t <= 0.45;
-          points.push({ x: px, y: py, type: isPrecaudal ? 'precaudal' : 'caudal' });
-        }
-      } else {
-        detectedPeaks.forEach((pk) => {
-          const isPrecaudal = pk.dist <= 0.45;
-          points.push({ x: pk.x, y: pk.y, type: isPrecaudal ? 'precaudal' : 'caudal' });
-        });
+      // Synchronize Slider Limits dynamically based on detected peaks count
+      const totalDetected = detectedPeakIndices.length;
+      const splitSlider = document.getElementById('precaudalSplitSlider');
+      splitSlider.max = Math.max(1, totalDetected);
+      if (precaudalBoundaryIndex > totalDetected) {
+        precaudalBoundaryIndex = Math.max(1, Math.floor(totalDetected / 2));
+        splitSlider.value = precaudalBoundaryIndex;
+        document.getElementById('precaudalCountVal').innerText = precaudalBoundaryIndex;
       }
+
+      generatePointsFromPeaks();
+      renderGraph();
+      render();
+    }
+
+    function generatePointsFromPeaks() {
+      points = detectedPeakIndices.map((peakIdx, nodeRank) => {
+        const pk = intensityProfile[peakIdx];
+        const isPrecaudal = (nodeRank + 1) <= precaudalBoundaryIndex;
+        return {
+          x: pk.x,
+          y: pk.y,
+          type: isPrecaudal ? 'precaudal' : 'caudal'
+        };
+      });
 
       updateCounts();
+    }
+
+    function reclassifyPoints() {
+      points.forEach((pt, idx) => {
+        pt.type = (idx + 1) <= precaudalBoundaryIndex ? 'precaudal' : 'caudal';
+      });
+      updateCounts();
+      renderGraph();
       render();
+    }
+
+    function renderGraph() {
+      graphCanvas.width = graphCanvas.clientWidth;
+      graphCanvas.height = graphCanvas.clientHeight;
+
+      gctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+      if (!intensityProfile || intensityProfile.length === 0) return;
+
+      const w = graphCanvas.width;
+      const h = graphCanvas.height;
+
+      let maxLum = 0;
+      let minLum = 255;
+      intensityProfile.forEach(p => {
+        if (p.smoothLuminance > maxLum) maxLum = p.smoothLuminance;
+        if (p.smoothLuminance < minLum) minLum = p.smoothLuminance;
+      });
+      const range = Math.max(1, maxLum - minLum);
+
+      // Draw Signal Curve
+      gctx.beginPath();
+      gctx.strokeStyle = '#38bdf8';
+      gctx.lineWidth = 1.5;
+
+      intensityProfile.forEach((p, idx) => {
+        const x = (idx / (intensityProfile.length - 1)) * w;
+        const y = h - ((p.smoothLuminance - minLum) / range) * (h - 20) - 10;
+        if (idx === 0) gctx.moveTo(x, y);
+        else gctx.lineTo(x, y);
+      });
+      gctx.stroke();
+
+      // Draw Peak Markers on Graph
+      detectedPeakIndices.forEach((peakIdx, rank) => {
+        const p = intensityProfile[peakIdx];
+        const x = (peakIdx / (intensityProfile.length - 1)) * w;
+        const y = h - ((p.smoothLuminance - minLum) / range) * (h - 20) - 10;
+
+        const isPrecaudal = (rank + 1) <= precaudalBoundaryIndex;
+
+        gctx.beginPath();
+        gctx.arc(x, y, 4, 0, Math.PI * 2);
+        gctx.fillStyle = isPrecaudal ? '#ff4d4d' : '#00f2fe';
+        gctx.fill();
+      });
     }
 
     function render() {
@@ -453,6 +600,16 @@
           ctx.stroke();
           ctx.setLineDash([]);
         }
+      }
+
+      // Draw active Spine Path vector
+      if (lineStart && lineEnd) {
+        ctx.beginPath();
+        ctx.moveTo(lineStart.x, lineStart.y);
+        ctx.lineTo(lineEnd.x, lineEnd.y);
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+        ctx.lineWidth = 2 / scale;
+        ctx.stroke();
       }
 
       let preIdx = 1;
@@ -546,7 +703,6 @@
 
       const coords = getCanvasCoords(e);
 
-      // Handle Step 1
       if (placementStep === 1) {
         lineStart = coords;
         placementStep = 2;
@@ -556,16 +712,14 @@
         return;
       }
 
-      // Handle Step 2
       if (placementStep === 2) {
-        const lineEnd = coords;
+        const lineEndPt = coords;
         placementStep = 0;
         document.getElementById('bannerInstruction').style.display = 'none';
-        executeIntensityPeakDetection(lineStart, lineEnd);
+        executeIntensityPeakDetection(lineStart, lineEndPt);
         return;
       }
 
-      // Normal point creation
       points.push({ x: coords.x, y: coords.y, type: mode });
       updateCounts();
       render();
@@ -608,8 +762,13 @@
 
     function clearAll() {
       points = [];
+      intensityProfile = [];
+      detectedPeakIndices = [];
+      lineStart = null;
+      lineEnd = null;
       cancelPlacement();
       updateCounts();
+      renderGraph();
       render();
     }
 
@@ -633,7 +792,7 @@
       const ectx = exportCanvas.getContext('2d');
 
       ectx.drawImage(currentImage, 0, 0);
-      points.forEach((pt, idx) => {
+      points.forEach((pt) => {
         ectx.beginPath();
         ectx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
         ectx.fillStyle = pt.type === 'precaudal' ? '#ff4d4d' : '#00f2fe';
