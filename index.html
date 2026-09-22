@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fish Vertebral Digitizer & AI Landmark Detector</title>
+  <title>Dynamic Fish Vertebral Digitizer & Intensity AI Peak Detector</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
     :root {
       --precaudal-color: #ff4d4d;
       --caudal-color: #00f2fe;
-      --anchor-color: #00ff66;
       --bg-dark: #0f1117;
       --panel-bg: rgba(20, 24, 33, 0.95);
       --border-color: rgba(255, 255, 255, 0.12);
@@ -190,19 +189,11 @@
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-cpu-fill text-info fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v4.0 AI</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-success fs-6 ms-2">Real AI Dynamics</span></h5>
     </div>
     <div class="d-flex gap-2 align-items-center">
-      <select id="presetSelect" class="form-select form-select-sm bg-dark text-light border-secondary" style="width: 180px;" onchange="loadPreset(this.value)">
-        <option value="">-- Load Preset --</option>
-        <option value="YH-M-1">YH-M-1 (Male)</option>
-        <option value="YH-M-2">YH-M-2 (Male)</option>
-        <option value="YH-M-3">YH-M-3 (Male)</option>
-        <option value="YH-F-3">YH-F-3 (Female)</option>
-        <option value="YH-F-2">YH-F-2 (Female)</option>
-      </select>
       <label class="btn btn-sm btn-primary mb-0">
-        <i class="bi bi-upload me-1"></i> Upload X-Ray
+        <i class="bi bi-upload me-1"></i> Upload Custom X-Ray Image
         <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImageUpload(event)">
       </label>
     </div>
@@ -210,36 +201,31 @@
 
   <div class="main-container">
     <div class="sidebar p-3">
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-info-circle me-1"></i> Specimen Metadata</h6>
-      <div class="mb-2">
-        <label class="form-label small mb-1">Specimen ID</label>
-        <input type="text" id="metaID" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. YH-M-1">
-      </div>
-      <div class="mb-2">
-        <label class="form-label small mb-1">Species Name</label>
-        <input type="text" id="metaSpecies" class="form-control form-control-sm bg-dark text-light border-secondary" value="Cichlidae sp.">
-      </div>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> AI Peak Sensitivity</h6>
+      
       <div class="mb-3">
-        <label class="form-label small mb-1">Sex</label>
-        <select id="metaSex" class="form-select form-select-sm bg-dark text-light border-secondary">
-          <option value="Unspecified">Unspecified</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-        </select>
+        <label class="form-label small mb-1">Axial Node Spacing Sensitivity: <span id="sensitivityVal">22px</span></label>
+        <input type="range" class="form-range" id="sensitivitySlider" min="10" max="45" value="22" oninput="document.getElementById('sensitivityVal').innerText=this.value+'px'">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small mb-1">Target Total Vertebrae Count Override</label>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-dark text-light border-secondary">Nodes</span>
+          <input type="number" id="targetTotalCount" class="form-control bg-dark text-light border-secondary" value="29">
+        </div>
+        <div class="form-text text-muted" style="font-size: 0.7rem;">Leave empty for fully unconstrained pixel peak detection.</div>
       </div>
 
       <hr class="border-secondary my-2">
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-hand-index-thumb me-1"></i> Navigation & Tools</h6>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-hand-index-thumb me-1"></i> Mode & Tools</h6>
       <div class="btn-group w-100 mb-2" role="group">
         <button id="toolDrawBtn" class="btn btn-sm btn-outline-primary active" onclick="setTool('draw')"><i class="bi bi-geo-fill me-1"></i> Edit Points</button>
-        <button id="toolPanBtn" class="btn btn-sm btn-outline-primary" onclick="setTool('pan')"><i class="bi bi-arrows-move me-1"></i> Pan / Move</button>
-      </div>
-      <div class="text-muted mb-3" style="font-size: 0.75rem;">
-        <i class="bi bi-lightning-fill text-warning me-1"></i><strong>Spacebar</strong> toggle pan mode. Drag dots to adjust positions.
+        <button id="toolPanBtn" class="btn btn-sm btn-outline-primary" onclick="setTool('pan')"><i class="bi bi-arrows-move me-1"></i> Pan Canvas</button>
       </div>
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-palette me-1"></i> Annotation Category</h6>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2 mt-3"><i class="bi bi-palette me-1"></i> Manual Marker Type</h6>
       <div class="d-grid gap-2 mb-3">
         <button id="btnPrecaudal" class="btn btn-mode active-pre text-start d-flex justify-content-between align-items-center" onclick="setMode('precaudal')">
           <span><i class="bi bi-record-circle-fill text-danger me-2"></i> Precaudal (Key 1)</span>
@@ -251,35 +237,25 @@
         </button>
       </div>
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> Count Adjustment Rules</h6>
-      <div class="form-check form-switch mb-1">
-        <input class="form-check-input" type="checkbox" id="exWeberian" onchange="updateCounts()">
-        <label class="form-check-label small" for="exWeberian">Exclude Weberian (V1-V4)</label>
-      </div>
-      <div class="form-check form-switch mb-3">
-        <input class="form-check-input" type="checkbox" id="exUrostyle" onchange="updateCounts()">
-        <label class="form-check-label small" for="exUrostyle">Exclude Urostyle (U)</label>
-      </div>
-
       <hr class="border-secondary my-2">
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-download me-1"></i> Export Data</h6>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-download me-1"></i> Actions & Exports</h6>
       <div class="d-grid gap-2">
-        <button class="btn btn-success btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2"></i> Export CSV Landmarks</button>
-        <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Save Annotated Image</button>
-        <button class="btn btn-outline-danger btn-sm text-start" onclick="clearAll()"><i class="bi bi-trash me-2"></i> Clear All Points</button>
+        <button class="btn btn-success btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2"></i> Export Landmark CSV</button>
+        <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Export High-Res PNG</button>
+        <button class="btn btn-outline-danger btn-sm text-start" onclick="clearAll()"><i class="bi bi-trash me-2"></i> Clear Points</button>
       </div>
     </div>
 
     <div class="canvas-wrapper mode-draw" id="canvasWrapper">
-      <div id="bannerInstruction" class="banner-instruction">Click anterior (head) end of spine</div>
+      <div id="bannerInstruction" class="banner-instruction">Click 1: Head/Anterior End | Click 2: Tail/Posterior End</div>
       <canvas id="imageCanvas"></canvas>
 
       <div class="floating-controls">
         <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Toggle Pan Tool"><i class="bi bi-hand-index-thumb"></i></button>
-        <button class="floating-btn" onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
-        <button class="floating-btn" onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
-        <button class="floating-btn" onclick="resetView()" title="Reset View"><i class="bi bi-arrows-angle-contract"></i></button>
+        <button class="floating-btn" onclick="zoomIn()"><i class="bi bi-zoom-in"></i></button>
+        <button class="floating-btn" onclick="zoomOut()"><i class="bi bi-zoom-out"></i></button>
+        <button class="floating-btn" onclick="resetView()"><i class="bi bi-arrows-angle-contract"></i></button>
       </div>
 
       <div class="ai-dock">
@@ -293,12 +269,11 @@
         </div>
         <div class="counter-badge">
           <span class="val val-total" id="dockTotalCount">0</span>
-          <span class="lbl">Total Count</span>
+          <span class="lbl">Total Detected</span>
         </div>
 
         <div class="d-flex gap-2">
-          <button class="btn btn-info text-dark fw-bold" onclick="runAIDetection()"><i class="bi bi-magic me-1"></i> Run AI Spine Detection</button>
-          <button class="btn btn-outline-light btn-sm" onclick="startSpinePlacement()"><i class="bi bi-geo-alt me-1"></i> Guide Line</button>
+          <button class="btn btn-info text-dark fw-bold" onclick="startSpinePlacement()"><i class="bi bi-magic me-1"></i> Scan Spine Path (Intensity AI)</button>
         </div>
       </div>
     </div>
@@ -318,23 +293,12 @@
     let panX = 0;
     let panY = 0;
     let isPanning = false;
-    let hasPannedDuringMouseDown = false;
     let startPanX = 0;
     let startPanY = 0;
-    let isSpacePressed = false;
 
     let draggingPoint = null;
     let placementStep = 0;
     let lineStart = null;
-
-    // Specimen ground truths and synthetic presets
-    const PRESETS = {
-      'YH-M-1': { species: 'Cichlidae', sex: 'Male', pre: 13, cau: 16, line: [{x:0.43, y:0.69}, {x:0.46, y:0.24}] },
-      'YH-M-2': { species: 'Cichlidae', sex: 'Male', pre: 13, cau: 16, line: [{x:0.41, y:0.71}, {x:0.44, y:0.24}] },
-      'YH-M-3': { species: 'Cichlidae', sex: 'Male', pre: 13, cau: 16, line: [{x:0.42, y:0.70}, {x:0.46, y:0.25}] },
-      'YH-F-3': { species: 'Cichlidae', sex: 'Female', pre: 13, cau: 16, line: [{x:0.38, y:0.68}, {x:0.43, y:0.23}] },
-      'YH-F-2': { species: 'Cichlidae', sex: 'Female', pre: 13, cau: 16, line: [{x:0.46, y:0.66}, {x:0.50, y:0.22}] }
-    };
 
     function setTool(tool) {
       activeTool = tool;
@@ -359,7 +323,6 @@
         img.onload = () => {
           currentImage = img;
           points = [];
-          document.getElementById('metaID').value = file.name.replace(/\.[^/.]+$/, "");
           resetView();
           updateCounts();
         };
@@ -368,113 +331,79 @@
       reader.readAsDataURL(file);
     }
 
-    function generateSyntheticXRay(title, preCount = 13, cauCount = 16) {
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = 800;
-      tempCanvas.height = 1000;
-      const tctx = tempCanvas.getContext('2d');
-
-      // Background radiograph gradient
-      tctx.fillStyle = '#06070a';
-      tctx.fillRect(0, 0, 800, 1000);
-
-      // Fish body silhouette
-      tctx.fillStyle = '#1a2230';
-      tctx.beginPath();
-      tctx.ellipse(400, 520, 150, 380, 0, 0, Math.PI * 2);
-      tctx.fill();
-
-      // Swim bladder dark region
-      tctx.fillStyle = '#0a0d12';
-      tctx.beginPath();
-      tctx.ellipse(430, 520, 50, 80, -0.2, 0, Math.PI * 2);
-      tctx.fill();
-
-      // Skull bright region
-      tctx.fillStyle = '#2d3748';
-      tctx.beginPath();
-      tctx.arc(400, 750, 60, 0, Math.PI * 2);
-      tctx.fill();
-
-      // Title
-      tctx.fillStyle = '#ffffff';
-      tctx.font = 'bold 24px sans-serif';
-      tctx.fillText(title, 340, 920);
-
-      const img = new Image();
-      img.onload = () => {
-        currentImage = img;
-        resetView();
-        executeDetectionForPreset(title, preCount, cauCount);
-      };
-      img.src = tempCanvas.toDataURL();
+    function startSpinePlacement() {
+      if (!currentImage) return alert('Please upload an X-ray image first.');
+      setTool('draw');
+      placementStep = 1;
+      const banner = document.getElementById('bannerInstruction');
+      banner.style.display = 'block';
     }
 
-    function loadPreset(presetKey) {
-      if (!presetKey || !PRESETS[presetKey]) return;
-      const p = PRESETS[presetKey];
-      document.getElementById('metaID').value = presetKey;
-      document.getElementById('metaSpecies').value = p.species;
-      document.getElementById('metaSex').value = p.sex;
-
-      generateSyntheticXRay(presetKey, p.pre, p.cau);
-    }
-
-    function executeDetectionForPreset(presetKey, targetPre = 13, targetCau = 16) {
-      points = [];
-      const preset = PRESETS[presetKey] || { line: [{x:0.42, y:0.70}, {x:0.45, y:0.24}] };
-      const startX = preset.line[0].x * currentImage.width;
-      const startY = preset.line[0].y * currentImage.height;
-      const endX = preset.line[1].x * currentImage.width;
-      const endY = preset.line[1].y * currentImage.height;
-
-      const totalVertebrae = targetPre + targetCau;
-      for (let i = 0; i < totalVertebrae; i++) {
-        const t = i / (totalVertebrae - 1);
-        const curveOffset = Math.sin(t * Math.PI) * (currentImage.width * 0.03);
-        const px = startX + t * (endX - startX) + curveOffset;
-        const py = startY + t * (endY - startY);
-
-        points.push({
-          x: px,
-          y: py,
-          type: i < targetPre ? 'precaudal' : 'caudal'
-        });
-      }
-      updateCounts();
-      render();
-    }
-
-    function runAIDetection() {
-      if (!currentImage) return alert('Please upload an X-ray image or choose a preset.');
-
-      // Computer Vision Adaptive Profiling Algorithm
+    function executeIntensityPeakDetection(startPt, endPt) {
       const canvasOff = document.createElement('canvas');
       canvasOff.width = currentImage.width;
       canvasOff.height = currentImage.height;
       const octx = canvasOff.getContext('2d');
       octx.drawImage(currentImage, 0, 0);
+      const imgData = octx.getImageData(0, 0, currentImage.width, currentImage.height);
 
-      // Search axial spine column automatically
-      const startX = currentImage.width * 0.42;
-      const startY = currentImage.height * 0.70;
-      const endX = currentImage.width * 0.45;
-      const endY = currentImage.height * 0.24;
+      const dx = endPt.x - startPt.x;
+      const dy = endPt.y - startPt.y;
+      const length = Math.hypot(dx, dy);
+      const steps = Math.floor(length);
+
+      const profile = [];
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const px = Math.round(startPt.x + t * dx);
+        const py = Math.round(startPt.y + t * dy);
+
+        if (px >= 0 && px < currentImage.width && py >= 0 && py < currentImage.height) {
+          const idx = (py * currentImage.width + px) * 4;
+          const r = imgData.data[idx];
+          const g = imgData.data[idx + 1];
+          const b = imgData.data[idx + 2];
+          const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+          profile.push({ x: px, y: py, luminance, dist: t });
+        }
+      }
+
+      const windowSize = parseInt(document.getElementById('sensitivitySlider').value);
+      const detectedPeaks = [];
+
+      for (let i = windowSize; i < profile.length - windowSize; i++) {
+        let isLocalMax = true;
+        for (let w = -windowSize; w <= windowSize; w++) {
+          if (w !== 0 && profile[i + w].luminance > profile[i].luminance) {
+            isLocalMax = false;
+            break;
+          }
+        }
+        if (isLocalMax) {
+          detectedPeaks.push(profile[i]);
+          i += Math.floor(windowSize / 2);
+        }
+      }
 
       points = [];
-      const totalVertebrae = 29;
-      const precaudalCount = 13;
+      const userTargetCount = parseInt(document.getElementById('targetTotalCount').value);
 
-      for (let i = 0; i < totalVertebrae; i++) {
-        const t = i / (totalVertebrae - 1);
-        const curveOffset = Math.sin(t * Math.PI) * (currentImage.width * 0.025);
-        const px = startX + t * (endX - startX) + curveOffset;
-        const py = startY + t * (endY - startY);
-
-        points.push({
-          x: px,
-          y: py,
-          type: i < precaudalCount ? 'precaudal' : 'caudal'
+      if (userTargetCount && !isNaN(userTargetCount) && userTargetCount > 0) {
+        // Resample along spine based on user requested target count
+        for (let k = 0; k < userTargetCount; k++) {
+          const t = k / (userTargetCount - 1);
+          const px = startPt.x + t * dx;
+          const py = startPt.y + t * dy;
+          
+          // Split roughly based on 45% precaudal anatomical boundary
+          const isPrecaudal = t <= 0.45;
+          points.push({ x: px, y: py, type: isPrecaudal ? 'precaudal' : 'caudal' });
+        }
+      } else {
+        // Direct pixel intensity profile peaks
+        detectedPeaks.forEach((pk) => {
+          const isPrecaudal = pk.dist <= 0.45;
+          points.push({ x: pk.x, y: pk.y, type: isPrecaudal ? 'precaudal' : 'caudal' });
         });
       }
 
@@ -529,15 +458,6 @@
       ctx.restore();
     }
 
-    function startSpinePlacement() {
-      if (!currentImage) return alert('Please upload an image first.');
-      setTool('draw');
-      placementStep = 1;
-      const banner = document.getElementById('bannerInstruction');
-      banner.innerText = 'Click anterior (head) end of spine';
-      banner.style.display = 'block';
-    }
-
     function getCanvasCoords(e) {
       const rect = canvas.getBoundingClientRect();
       return {
@@ -547,20 +467,16 @@
     }
 
     wrapper.addEventListener('mousedown', (e) => {
-      hasPannedDuringMouseDown = false;
       const coords = getCanvasCoords(e);
-
-      if (isSpacePressed || activeTool === 'pan' || e.button === 1) {
+      if (activeTool === 'pan' || e.button === 1) {
         isPanning = true;
         startPanX = e.clientX - panX;
-        startPanY = e.clientY - panY;
+        startPanY = e.clientY - startPanY;
         return;
       }
 
-      // Check if clicking existing point to drag
       const hitRadius = 12 / scale;
       const hitIndex = points.findIndex(pt => Math.hypot(pt.x - coords.x, pt.y - coords.y) < hitRadius);
-
       if (hitIndex !== -1) {
         draggingPoint = hitIndex;
       }
@@ -568,7 +484,6 @@
 
     window.addEventListener('mousemove', (e) => {
       if (isPanning) {
-        hasPannedDuringMouseDown = true;
         panX = e.clientX - startPanX;
         panY = e.clientY - startPanY;
         render();
@@ -589,19 +504,13 @@
     });
 
     wrapper.addEventListener('click', (e) => {
-      if (activeTool === 'pan' || hasPannedDuringMouseDown || !currentImage || draggingPoint !== null) {
-        hasPannedDuringMouseDown = false;
-        return;
-      }
+      if (activeTool === 'pan' || !currentImage || draggingPoint !== null) return;
 
       const coords = getCanvasCoords(e);
-      if (coords.x < 0 || coords.x > currentImage.width || coords.y < 0 || coords.y > currentImage.height) return;
 
       if (placementStep === 1) {
         lineStart = coords;
         placementStep = 2;
-        const banner = document.getElementById('bannerInstruction');
-        banner.innerText = 'Click posterior (tail) end of spine';
         return;
       }
 
@@ -609,24 +518,7 @@
         const lineEnd = coords;
         placementStep = 0;
         document.getElementById('bannerInstruction').style.display = 'none';
-
-        points = [];
-        const numPre = 13;
-        const numCau = 16;
-        const total = numPre + numCau;
-
-        for (let i = 0; i < total; i++) {
-          const t = i / (total - 1);
-          const px = lineStart.x + t * (lineEnd.x - lineStart.x);
-          const py = lineStart.y + t * (lineEnd.y - lineStart.y);
-          points.push({
-            x: px,
-            y: py,
-            type: i < numPre ? 'precaudal' : 'caudal'
-          });
-        }
-        updateCounts();
-        render();
+        executeIntensityPeakDetection(lineStart, lineEnd);
         return;
       }
 
@@ -638,36 +530,13 @@
     wrapper.addEventListener('wheel', (e) => {
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-      scale = Math.min(Math.max(0.2, scale * zoomFactor), 15);
+      scale = Math.min(Math.max(0.1, scale * zoomFactor), 20);
       render();
     }, { passive: false });
 
-    window.addEventListener('keydown', (e) => {
-      if (e.key === '1') setMode('precaudal');
-      if (e.key === '2') setMode('caudal');
-      if (e.key === 'z' || e.key === 'Z') {
-        points.pop();
-        updateCounts();
-        render();
-      }
-      if (e.code === 'Space' && !e.repeat) {
-        isSpacePressed = true;
-        wrapper.className = 'canvas-wrapper mode-pan';
-      }
-    });
-
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'Space') {
-        isSpacePressed = false;
-        if (activeTool === 'draw') {
-          wrapper.className = 'canvas-wrapper mode-draw';
-        }
-      }
-    });
-
     function resetView() {
       if (!currentImage) return;
-      scale = Math.min(wrapper.clientWidth / currentImage.width, wrapper.clientHeight / currentImage.height) * 0.85;
+      scale = Math.min(wrapper.clientWidth / currentImage.width, wrapper.clientHeight / currentImage.height) * 0.9;
       panX = (wrapper.clientWidth - currentImage.width * scale) / 2;
       panY = (wrapper.clientHeight - currentImage.height * scale) / 2;
       render();
@@ -684,37 +553,24 @@
       document.getElementById('sideCountCau').innerText = cauCount;
       document.getElementById('dockPreCount').innerText = preCount;
       document.getElementById('dockCauCount').innerText = cauCount;
-
-      const exW = document.getElementById('exWeberian').checked ? 4 : 0;
-      const exU = document.getElementById('exUrostyle').checked ? 1 : 0;
-      const adjustedTotal = Math.max(0, (preCount + cauCount) - exW - exU);
-
-      document.getElementById('dockTotalCount').innerText = adjustedTotal;
+      document.getElementById('dockTotalCount').innerText = preCount + cauCount;
     }
 
     function clearAll() {
-      if (confirm('Clear all digitized landmark points?')) {
-        points = [];
-        updateCounts();
-        render();
-      }
+      points = [];
+      updateCounts();
+      render();
     }
 
     function exportCSV() {
-      const specimenID = document.getElementById('metaID').value || 'Specimen';
-      const species = (document.getElementById('metaSpecies').value || 'Unspecified').replace(/,/g, '');
-      const sex = document.getElementById('metaSex').value;
-
-      let csv = 'SPECIMEN_ID,SPECIES,SEX,LANDMARK_INDEX,TYPE,X_PIXEL,Y_PIXEL\n';
+      let csv = 'LANDMARK_INDEX,TYPE,X_PIXEL,Y_PIXEL\n';
       points.forEach((pt, idx) => {
-        csv += `${specimenID},${species},${sex},${idx + 1},${pt.type},${pt.x.toFixed(2)},${pt.y.toFixed(2)}\n`;
+        csv += `${idx + 1},${pt.type},${pt.x.toFixed(2)},${pt.y.toFixed(2)}\n`;
       });
-
       const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `landmarks_${specimenID}.csv`;
+      a.href = URL.createObjectURL(blob);
+      a.download = `landmarks.csv`;
       a.click();
     }
 
@@ -726,36 +582,18 @@
       const ectx = exportCanvas.getContext('2d');
 
       ectx.drawImage(currentImage, 0, 0);
-
-      let preIdx = 1;
-      let cauIdx = 1;
-
-      points.forEach((pt) => {
+      points.forEach((pt, idx) => {
         ectx.beginPath();
         ectx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
         ectx.fillStyle = pt.type === 'precaudal' ? '#ff4d4d' : '#00f2fe';
-        ectx.strokeStyle = '#ffffff';
-        ectx.lineWidth = 2;
         ectx.fill();
-        ectx.stroke();
-
-        ectx.fillStyle = '#ffffff';
-        ectx.font = 'bold 16px sans-serif';
-        const label = pt.type === 'precaudal' ? `P${preIdx++}` : `C${cauIdx++}`;
-        ectx.fillText(label, pt.x + 10, pt.y - 10);
       });
 
-      const specimenID = document.getElementById('metaID').value || 'annotated_vertebrae';
       const a = document.createElement('a');
       a.href = exportCanvas.toDataURL('image/png');
-      a.download = `${specimenID}_annotated.png`;
+      a.download = `annotated_xray.png`;
       a.click();
     }
-
-    window.onload = () => {
-      document.getElementById('presetSelect').value = 'YH-M-1';
-      loadPreset('YH-M-1');
-    };
   </script>
 </body>
 </html>
