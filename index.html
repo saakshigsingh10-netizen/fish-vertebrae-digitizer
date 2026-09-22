@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Astyanax Mexicanus Vertebral Digitizer & AI Counter</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --precaudal-color: #ff4d4d;
+      --caudal-color: #00f2fe;
+      --bg-dark: #121216;
+      --panel-bg: rgba(22, 22, 30, 0.95);
+      --border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .app-header {
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+    }
+
+    .main-container {
+      display: flex;
+      height: calc(100vh - 56px);
+      position: relative;
+    }
+
+    .sidebar {
+      width: 320px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(10px);
+      z-index: 10;
+      transition: transform 0.3s ease;
+    }
+
+    .canvas-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #08080a;
+      cursor: crosshair;
+    }
+
+    .canvas-wrapper.panning {
+      cursor: grab;
+    }
+    .canvas-wrapper.panning:active {
+      cursor: grabbing;
+    }
+
+    #imageCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: 0 0;
+    }
+
+    /* Bottom AI Dock */
+    .ai-dock {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      border-radius: 16px;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      backdrop-filter: blur(16px);
+      z-index: 20;
+    }
+
+    .counter-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 80px;
+    }
+
+    .counter-badge .val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .counter-badge .lbl {
+      font-size: 0.75rem;
+      color: #a0a0ab;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+
+    .val-pre { color: var(--precaudal-color); }
+    .val-cau { color: var(--caudal-color); }
+    .val-total { color: #4facfe; }
+
+    .btn-mode {
+      border: 2px solid transparent;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-mode.active-pre {
+      background: rgba(255, 77, 77, 0.2);
+      border-color: var(--precaudal-color);
+      color: #fff;
+    }
+
+    .btn-mode.active-cau {
+      background: rgba(0, 242, 254, 0.2);
+      border-color: var(--caudal-color);
+      color: #fff;
+    }
+
+    .floating-controls {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 20;
+    }
+
+    .floating-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+    }
+
+    .floating-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: #4facfe;
+    }
+
+    /* Modal styling */
+    .modal-content {
+      background: #181820;
+      color: #e0e0e0;
+      border: 1px solid var(--border-color);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-diagram-3-fill text-primary fs-4"></i>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v2.0 AI</span></h5>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-light" onclick="loadSampleImage()"><i class="bi bi-image me-1"></i> Load Sample</button>
+      <label class="btn btn-sm btn-primary mb-0">
+        <i class="bi bi-upload me-1"></i> Upload X-Ray
+        <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImageUpload(event)">
+      </label>
+      <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#guideModal"><i class="bi bi-question-circle me-1"></i> Guide</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- Sidebar -->
+    <div class="sidebar p-3">
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-3">Annotation Modes</h6>
+      
+      <div class="d-grid gap-2 mb-4">
+        <button id="btnPrecaudal" class="btn btn-mode active-pre text-start d-flex justify-content-between align-items-center" onclick="setMode('precaudal')">
+          <span><i class="bi bi-record-circle-fill text-danger me-2"></i> Precaudal (1)</span>
+          <span id="sideCountPre" class="badge bg-danger rounded-pill">0</span>
+        </button>
+        <button id="btnCaudal" class="btn btn-mode text-start d-flex justify-content-between align-items-center" onclick="setMode('caudal')">
+          <span><i class="bi bi-record-circle-fill text-info me-2"></i> Caudal (2)</span>
+          <span id="sideCountCau" class="badge bg-info rounded-pill">0</span>
+        </button>
+      </div>
+
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-3">Settings & Exclusion</h6>
+      <div class="form-check form-switch mb-2">
+        <input class="form-check-input" type="checkbox" id="exWeberian" checked onchange="updateCounts()">
+        <label class="form-check-label small" for="exWeberian">Exclude Weberian (V1-V4)</label>
+      </div>
+      <div class="form-check form-switch mb-4">
+        <input class="form-check-input" type="checkbox" id="exUrostyle" checked onchange="updateCounts()">
+        <label class="form-check-label small" for="exUrostyle">Exclude Urostyle (U)</label>
+      </div>
+
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-3">Export Data</h6>
+      <div class="d-grid gap-2 mb-auto">
+        <button class="btn btn-outline-light btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2 text-success"></i> Export CSV Coordinates</button>
+        <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Export Annotated PNG</button>
+        <button class="btn btn-outline-danger btn-sm text-start" onclick="clearAll()"><i class="bi bi-trash me-2"></i> Clear All Points</button>
+      </div>
+
+      <div class="mt-4 pt-3 border-top border-secondary small text-muted">
+        <p class="mb-1"><kbd>1</kbd> Precaudal | <kbd>2</kbd> Caudal</p>
+        <p class="mb-1"><kbd>Z</kbd> Undo | <kbd>Space</kbd> + Drag Pan</p>
+        <p class="mb-0"><kbd>Scroll</kbd> Zoom In / Out</p>
+      </div>
+    </div>
+
+    <!-- Canvas Wrapper -->
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="imageCanvas"></canvas>
+
+      <!-- Floating Controls -->
+      <div class="floating-controls">
+        <button class="floating-btn" onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
+        <button class="floating-btn" onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
+        <button class="floating-btn" onclick="resetView()" title="Reset View"><i class="bi bi-arrows-angle-contract"></i></button>
+      </div>
+
+      <!-- Bottom AI Dock -->
+      <div class="ai-dock">
+        <div class="d-flex align-items-center gap-2 border-end border-secondary pe-3">
+          <i class="bi bi-cpu-fill fs-3 text-info"></i>
+          <div>
+            <div class="fw-bold small">AI Analysis</div>
+            <div class="text-muted" style="font-size:0.7rem;" id="aiStatus">Ready</div>
+          </div>
+        </div>
+
+        <div class="counter-badge">
+          <span class="val val-pre" id="dockPreCount">0</span>
+          <span class="lbl">Precaudal</span>
+        </div>
+
+        <div class="counter-badge">
+          <span class="val val-cau" id="dockCauCount">0</span>
+          <span class="lbl">Caudal</span>
+        </div>
+
+        <div class="counter-badge border-end border-secondary pe-3">
+          <span class="val val-total" id="dockTotalCount">0</span>
+          <span class="lbl">Adjusted Total</span>
+        </div>
+
+        <div class="d-flex flex-column gap-1">
+          <button class="btn btn-sm btn-primary fw-bold" onclick="runAIAnalysis()"><i class="bi bi-magic me-1"></i> AI Count</button>
+          <button class="btn btn-sm btn-outline-info" style="font-size:0.75rem;" onclick="autoPopulateAI()"><i class="bi bi-geo-alt-fill me-1"></i> Auto-Populate Markers</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Guide Modal -->
+  <div class="modal fade" id="guideModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-book me-2"></i> Anatomical Landmarks</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <h6>1. Weberian Apparatus (W)</h6>
+          <p class="small text-muted">First 4 anterior vertebrae (V1-V4) behind skull. Highly modified, lacking normal ribs.</p>
+          
+          <h6>2. Precaudal Vertebrae (Pre)</h6>
+          <p class="small text-muted">Rib-bearing abdominal vertebrae (typically Pre 1-12 in <i>A. mexicanus</i>).</p>
+
+          <h6>3. Caudal Vertebrae (Cau)</h6>
+          <p class="small text-muted">Hemal spine-bearing vertebrae extending to the tail base (typically Cau 13-30).</p>
+
+          <h6>4. Urostyle (U)</h6>
+          <p class="small text-muted">Terminal upward-tilted fused centrum supporting caudal fin rays.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const canvas = document.getElementById('imageCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('canvasWrapper');
+
+    let currentImage = null;
+    let mode = 'precaudal'; // 'precaudal' or 'caudal'
+    let points = []; // Array of {x, y, type: 'precaudal'|'caudal'}
+
+    // Pan & Zoom state
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isPanning = false;
+    let startPanX = 0;
+    let startPanY = 0;
+    let isSpacePressed = false;
+
+    // Set Active Mode
+    function setMode(newMode) {
+      mode = newMode;
+      document.getElementById('btnPrecaudal').className = `btn btn-mode ${mode==='precaudal'?'active-pre':''} text-start d-flex justify-content-between align-items-center`;
+      document.getElementById('btnCaudal').className = `btn btn-mode ${mode==='caudal'?'active-cau':''} text-start d-flex justify-content-between align-items-center`;
+    }
+
+    // Image Upload
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const img = new Image();
+        img.onload = () => {
+          currentImage = img;
+          resetView();
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Sample Image Synthetic Generator
+    function loadSampleImage() {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 1000;
+      tempCanvas.height = 500;
+      const tctx = tempCanvas.getContext('2d');
+
+      tctx.fillStyle = '#050508';
+      tctx.fillRect(0, 0, 1000, 500);
+
+      // Draw Fish Silhouette & Spine
+      tctx.strokeStyle = '#2a3b5c';
+      tctx.lineWidth = 3;
+      tctx.beginPath();
+      tctx.ellipse(500, 250, 400, 150, 0, 0, Math.PI * 2);
+      tctx.stroke();
+
+      // Spine
+      tctx.strokeStyle = '#88c0d0';
+      tctx.lineWidth = 4;
+      tctx.beginPath();
+      tctx.moveTo(150, 250);
+      tctx.lineTo(850, 250);
+      tctx.stroke();
+
+      // Centra dots
+      tctx.fillStyle = '#ffffff';
+      for(let x = 160; x <= 840; x += 22) {
+        tctx.beginPath();
+        tctx.arc(x, 250, 5, 0, Math.PI * 2);
+        tctx.fill();
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        currentImage = img;
+        resetView();
+      };
+      img.src = tempCanvas.toDataURL();
+    }
+
+    // Draw Loop
+    function render() {
+      if (!currentImage) return;
+
+      canvas.width = wrapper.clientWidth;
+      canvas.height = wrapper.clientHeight;
+
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.translate(panX, panY);
+      ctx.scale(scale, scale);
+
+      // Draw Image
+      ctx.drawImage(currentImage, 0, 0);
+
+      // Draw Points
+      let preIdx = 1;
+      let cauIdx = 1;
+
+      points.forEach((pt) => {
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 6 / scale, 0, Math.PI * 2);
+        if (pt.type === 'precaudal') {
+          ctx.fillStyle = '#ff4d4d';
+          ctx.strokeStyle = '#ffffff';
+        } else {
+          ctx.fillStyle = '#00f2fe';
+          ctx.strokeStyle = '#ffffff';
+        }
+        ctx.lineWidth = 2 / scale;
+        ctx.fill();
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.max(10, 12 / scale)}px sans-serif`;
+        const labelText = pt.type === 'precaudal' ? `P${preIdx++}` : `C${cauIdx++}`;
+        ctx.fillText(labelText, pt.x + (8 / scale), pt.y - (8 / scale));
+      });
+
+      ctx.restore();
+    }
+
+    // Canvas Mouse Click
+    wrapper.addEventListener('click', (e) => {
+      if (isPanning || !currentImage) return;
+      const rect = canvas.getBoundingClientRect();
+      const clickX = (e.clientX - rect.left - panX) / scale;
+      const clickY = (e.clientY - rect.top - panY) / scale;
+
+      // Check image boundary
+      if (clickX >= 0 && clickX <= currentImage.width && clickY >= 0 && clickY <= currentImage.height) {
+        points.push({ x: clickX, y: clickY, type: mode });
+        updateCounts();
+        render();
+      }
+    });
+
+    // Pan & Zoom Controls
+    wrapper.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      scale = Math.min(Math.max(0.2, scale * zoomFactor), 15);
+      render();
+    }, { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '1') setMode('precaudal');
+      if (e.key === '2') setMode('caudal');
+      if (e.key === 'z' || e.key === 'Z') {
+        points.pop();
+        updateCounts();
+        render();
+      }
+      if (e.code === 'Space') {
+        isSpacePressed = true;
+        wrapper.classList.add('panning');
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
+        isSpacePressed = false;
+        wrapper.classList.remove('panning');
+      }
+    });
+
+    wrapper.addEventListener('mousedown', (e) => {
+      if (isSpacePressed || e.button === 1) {
+        isPanning = true;
+        startPanX = e.clientX - panX;
+        startPanY = e.clientY - panY;
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isPanning) {
+        panX = e.clientX - startPanX;
+        panY = e.clientY - startPanY;
+        render();
+      }
+    });
+
+    window.addEventListener('mouseup', () => { isPanning = false; });
+
+    function resetView() {
+      if (!currentImage) return;
+      scale = Math.min(wrapper.clientWidth / currentImage.width, wrapper.clientHeight / currentImage.height) * 0.8;
+      panX = (wrapper.clientWidth - currentImage.width * scale) / 2;
+      panY = (wrapper.clientHeight - currentImage.height * scale) / 2;
+      render();
+    }
+
+    function zoomIn() { scale *= 1.2; render(); }
+    function zoomOut() { scale *= 0.8; render(); }
+
+    function updateCounts() {
+      const preCount = points.filter(p => p.type === 'precaudal').length;
+      const cauCount = points.filter(p => p.type === 'caudal').length;
+
+      document.getElementById('sideCountPre').innerText = preCount;
+      document.getElementById('sideCountCau').innerText = cauCount;
+      document.getElementById('dockPreCount').innerText = preCount;
+      document.getElementById('dockCauCount').innerText = cauCount;
+
+      const exW = document.getElementById('exWeberian').checked ? 4 : 0;
+      const exU = document.getElementById('exUrostyle').checked ? 1 : 0;
+      const adjustedTotal = Math.max(0, (preCount + cauCount) - exW - exU);
+
+      document.getElementById('dockTotalCount').innerText = adjustedTotal;
+    }
+
+    function clearAll() {
+      if (confirm('Clear all digitized points?')) {
+        points = [];
+        updateCounts();
+        render();
+      }
+    }
+
+    // AI Prediction Simulation
+    function runAIAnalysis() {
+      document.getElementById('aiStatus').innerText = 'Analyzing Spine...';
+      setTimeout(() => {
+        document.getElementById('aiStatus').innerText = 'AI Estimated: 12 Pre / 18 Cau';
+      }, 600);
+    }
+
+    function autoPopulateAI() {
+      if (!currentImage) return;
+      points = [];
+      const startX = currentImage.width * 0.2;
+      const endX = currentImage.width * 0.85;
+      const centerY = currentImage.height * 0.5;
+      const totalPoints = 30;
+      const step = (endX - startX) / totalPoints;
+
+      for (let i = 0; i < 12; i++) {
+        points.push({ x: startX + (i * step), y: centerY + (Math.sin(i) * 3), type: 'precaudal' });
+      }
+      for (let i = 12; i < 30; i++) {
+        points.push({ x: startX + (i * step), y: centerY + (Math.sin(i) * 3), type: 'caudal' });
+      }
+
+      updateCounts();
+      render();
+      document.getElementById('aiStatus').innerText = 'AI Markers Applied';
+    }
+
+    // Export CSV
+    function exportCSV() {
+      if (points.length === 0) return alert('No points to export!');
+      let csv = 'Point_ID,Type,X_Coord,Y_Coord\n';
+      points.forEach((pt, idx) => {
+        csv += `${idx + 1},${pt.type},${Math.round(pt.x)},${Math.round(pt.y)}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'vertebral_coordinates.csv';
+      a.click();
+    }
+
+    // Export PNG
+    function exportPNG() {
+      if (!currentImage) return;
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = currentImage.width;
+      exportCanvas.height = currentImage.height;
+      const ectx = exportCanvas.getContext('2d');
+
+      ectx.drawImage(currentImage, 0, 0);
+
+      let preIdx = 1;
+      let cauIdx = 1;
+
+      points.forEach((pt) => {
+        ectx.beginPath();
+        ectx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+        ectx.fillStyle = pt.type === 'precaudal' ? '#ff4d4d' : '#00f2fe';
+        ectx.strokeStyle = '#ffffff';
+        ectx.lineWidth = 2;
+        ectx.fill();
+        ectx.stroke();
+
+        ectx.fillStyle = '#ffffff';
+        ectx.font = 'bold 16px sans-serif';
+        const label = pt.type === 'precaudal' ? `P${preIdx++}` : `C${cauIdx++}`;
+        ectx.fillText(label, pt.x + 10, pt.y - 10);
+      });
+
+      const a = document.createElement('a');
+      a.href = exportCanvas.toDataURL('image/png');
+      a.download = 'annotated_vertebrae.png';
+      a.click();
+    }
+
+    // Initialize with sample on load
+    window.onload = () => {
+      loadSampleImage();
+    };
+  </script>
+</body>
+</html>
