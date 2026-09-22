@@ -58,13 +58,17 @@
       position: relative;
       overflow: hidden;
       background: #08080a;
+    }
+
+    .canvas-wrapper.mode-draw {
       cursor: crosshair;
     }
 
-    .canvas-wrapper.panning {
+    .canvas-wrapper.mode-pan {
       cursor: grab;
     }
-    .canvas-wrapper.panning:active {
+
+    .canvas-wrapper.mode-pan:active {
       cursor: grabbing;
     }
 
@@ -165,6 +169,12 @@
       color: #4facfe;
     }
 
+    .floating-btn.active {
+      background: #0d6efd;
+      border-color: #0d6efd;
+      color: #fff;
+    }
+
     .banner-instruction {
       position: absolute;
       top: 16px;
@@ -185,7 +195,7 @@
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-diagram-3-fill text-primary fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v3.3</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v3.4</span></h5>
     </div>
     <div class="d-flex gap-2">
       <button class="btn btn-sm btn-outline-light" onclick="loadSampleImage()"><i class="bi bi-image me-1"></i> Sample</button>
@@ -219,6 +229,15 @@
 
       <hr class="border-secondary my-2">
 
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Navigation Mode</h6>
+      <div class="btn-group w-100 mb-3" role="group">
+        <button id="toolDrawBtn" class="btn btn-sm btn-outline-primary active" onclick="setTool('draw')"><i class="bi bi-geo-fill me-1"></i> Place Points</button>
+        <button id="toolPanBtn" class="btn btn-sm btn-outline-primary" onclick="setTool('pan')"><i class="bi bi-hand-index-thumb-fill me-1"></i> Pan / Move</button>
+      </div>
+      <small class="text-muted mb-3 d-block" style="font-size:0.75rem;">
+        <i class="bi bi-info-circle me-1"></i> Tip: Hold <strong>Spacebar</strong> or drag with <strong>Middle Mouse Click</strong> anytime to pan around.
+      </small>
+
       <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Annotation Modes</h6>
       <div class="d-grid gap-2 mb-3">
         <button id="btnPrecaudal" class="btn btn-mode active-pre text-start d-flex justify-content-between align-items-center" onclick="setMode('precaudal')">
@@ -251,11 +270,12 @@
       </div>
     </div>
 
-    <div class="canvas-wrapper" id="canvasWrapper">
+    <div class="canvas-wrapper mode-draw" id="canvasWrapper">
       <div id="bannerInstruction" class="banner-instruction">Click start point (head/anterior) of the spine</div>
       <canvas id="imageCanvas"></canvas>
 
       <div class="floating-controls">
+        <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Pan Tool (Hand)"><i class="bi bi-hand-index-thumb"></i></button>
         <button class="floating-btn" onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
         <button class="floating-btn" onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
         <button class="floating-btn" onclick="resetView()" title="Reset View"><i class="bi bi-arrows-angle-contract"></i></button>
@@ -293,6 +313,8 @@
     let mode = 'precaudal';
     let points = [];
 
+    let activeTool = 'draw'; // 'draw' or 'pan'
+
     let scale = 1;
     let panX = 0;
     let panY = 0;
@@ -304,6 +326,19 @@
     // Spine Line Placement State
     let placementStep = 0; // 0: off, 1: click start, 2: click end
     let lineStart = null;
+
+    function setTool(tool) {
+      activeTool = tool;
+      document.getElementById('toolDrawBtn').className = `btn btn-sm btn-outline-primary ${tool === 'draw' ? 'active' : ''}`;
+      document.getElementById('toolPanBtn').className = `btn btn-sm btn-outline-primary ${tool === 'pan' ? 'active' : ''}`;
+      document.getElementById('btnPanToggle').className = `floating-btn ${tool === 'pan' ? 'active' : ''}`;
+      
+      if (tool === 'pan') {
+        wrapper.className = 'canvas-wrapper mode-pan';
+      } else {
+        wrapper.className = 'canvas-wrapper mode-draw';
+      }
+    }
 
     function setMode(newMode) {
       mode = newMode;
@@ -402,6 +437,7 @@
 
     function startSpinePlacement() {
       if (!currentImage) return alert('Please upload an image first.');
+      setTool('draw');
       placementStep = 1;
       const banner = document.getElementById('bannerInstruction');
       banner.innerText = 'Click anterior (head) end of spine';
@@ -409,7 +445,8 @@
     }
 
     wrapper.addEventListener('click', (e) => {
-      if (isPanning || !currentImage) return;
+      if (isPanning || !currentImage || activeTool === 'pan') return;
+
       const rect = canvas.getBoundingClientRect();
       const clickX = (e.clientX - rect.left - panX) / scale;
       const clickY = (e.clientY - rect.top - panY) / scale;
@@ -471,19 +508,21 @@
       }
       if (e.code === 'Space') {
         isSpacePressed = true;
-        wrapper.classList.add('panning');
+        wrapper.className = 'canvas-wrapper mode-pan';
       }
     });
 
     window.addEventListener('keyup', (e) => {
       if (e.code === 'Space') {
         isSpacePressed = false;
-        wrapper.classList.remove('panning');
+        if (activeTool === 'draw') {
+          wrapper.className = 'canvas-wrapper mode-draw';
+        }
       }
     });
 
     wrapper.addEventListener('mousedown', (e) => {
-      if (isSpacePressed || e.button === 1) {
+      if (isSpacePressed || activeTool === 'pan' || e.button === 1) {
         isPanning = true;
         startPanX = e.clientX - panX;
         startPanY = e.clientY - panY;
