@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Astyanax Mexicanus Vertebral Digitizer & AI Counter</title>
+  <title>Vertebral Digitizer & AI Counter</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
@@ -50,7 +50,7 @@
       flex-direction: column;
       backdrop-filter: blur(10px);
       z-index: 10;
-      transition: transform 0.3s ease;
+      overflow-y: auto;
     }
 
     .canvas-wrapper {
@@ -72,10 +72,8 @@
       position: absolute;
       top: 0;
       left: 0;
-      transform-origin: 0 0;
     }
 
-    /* Bottom AI Dock */
     .ai-dock {
       position: absolute;
       bottom: 20px;
@@ -167,37 +165,63 @@
       color: #4facfe;
     }
 
-    .modal-content {
-      background: #181820;
-      color: #e0e0e0;
-      border: 1px solid var(--border-color);
+    .banner-instruction {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 193, 7, 0.9);
+      color: #000;
+      font-weight: bold;
+      padding: 8px 16px;
+      border-radius: 20px;
+      z-index: 30;
+      display: none;
     }
   </style>
 </head>
 <body>
 
-  <!-- Header -->
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-diagram-3-fill text-primary fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v2.1 AI</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v3.0</span></h5>
     </div>
     <div class="d-flex gap-2">
-      <button class="btn btn-sm btn-outline-light" onclick="loadSampleImage()"><i class="bi bi-image me-1"></i> Load Sample</button>
+      <button class="btn btn-sm btn-outline-light" onclick="loadSampleImage()"><i class="bi bi-image me-1"></i> Sample</button>
       <label class="btn btn-sm btn-primary mb-0">
         <i class="bi bi-upload me-1"></i> Upload X-Ray
         <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImageUpload(event)">
       </label>
-      <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#guideModal"><i class="bi bi-question-circle me-1"></i> Guide</button>
+      <button class="btn btn-sm btn-outline-warning" onclick="resetAPIKey()"><i class="bi bi-key me-1"></i> Reset API Key</button>
     </div>
   </header>
 
   <div class="main-container">
-    <!-- Sidebar -->
     <div class="sidebar p-3">
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-3">Annotation Modes</h6>
-      
-      <div class="d-grid gap-2 mb-4">
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Specimen Metadata</h6>
+      <div class="mb-2">
+        <label class="form-label small mb-1">Species Name</label>
+        <input type="text" id="metaSpecies" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. Astyanax mexicanus">
+      </div>
+      <div class="mb-2">
+        <label class="form-label small mb-1">Brood ID</label>
+        <input type="text" id="metaBrood" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. B-2024-03">
+      </div>
+      <div class="mb-3">
+        <label class="form-label small mb-1">Sex</label>
+        <select id="metaSex" class="form-select form-select-sm bg-dark text-light border-secondary">
+          <option value="">Unspecified</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Indeterminate">Indeterminate</option>
+        </select>
+      </div>
+
+      <hr class="border-secondary my-2">
+
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Annotation Modes</h6>
+      <div class="d-grid gap-2 mb-3">
         <button id="btnPrecaudal" class="btn btn-mode active-pre text-start d-flex justify-content-between align-items-center" onclick="setMode('precaudal')">
           <span><i class="bi bi-record-circle-fill text-danger me-2"></i> Precaudal (1)</span>
           <span id="sideCountPre" class="badge bg-danger rounded-pill">0</span>
@@ -208,47 +232,41 @@
         </button>
       </div>
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-3">Settings & Exclusion</h6>
-      <div class="form-check form-switch mb-2">
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Exclusion Rules</h6>
+      <div class="form-check form-switch mb-1">
         <input class="form-check-input" type="checkbox" id="exWeberian" checked onchange="updateCounts()">
         <label class="form-check-label small" for="exWeberian">Exclude Weberian (V1-V4)</label>
       </div>
-      <div class="form-check form-switch mb-4">
+      <div class="form-check form-switch mb-3">
         <input class="form-check-input" type="checkbox" id="exUrostyle" checked onchange="updateCounts()">
         <label class="form-check-label small" for="exUrostyle">Exclude Urostyle (U)</label>
       </div>
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-3">Export Data</h6>
-      <div class="d-grid gap-2 mb-auto">
-        <button class="btn btn-outline-light btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2 text-success"></i> Export CSV Coordinates</button>
-        <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Export Annotated PNG</button>
-        <button class="btn btn-outline-danger btn-sm text-start" onclick="clearAll()"><i class="bi bi-trash me-2"></i> Clear All Points</button>
-      </div>
+      <hr class="border-secondary my-2">
 
-      <div class="mt-4 pt-3 border-top border-secondary small text-muted">
-        <p class="mb-1"><kbd>1</kbd> Precaudal | <kbd>2</kbd> Caudal</p>
-        <p class="mb-1"><kbd>Z</kbd> Undo | <kbd>Space</kbd> + Drag Pan</p>
-        <p class="mb-0"><kbd>Scroll</kbd> Zoom In / Out</p>
+      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2">Export Options</h6>
+      <div class="d-grid gap-2">
+        <button class="btn btn-success btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2"></i> Export CSV Table</button>
+        <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Export Annotated Image</button>
+        <button class="btn btn-outline-danger btn-sm text-start" onclick="clearAll()"><i class="bi bi-trash me-2"></i> Clear Points</button>
       </div>
     </div>
 
-    <!-- Canvas Wrapper -->
     <div class="canvas-wrapper" id="canvasWrapper">
+      <div id="bannerInstruction" class="banner-instruction">Click start point (head/anterior) of the spine</div>
       <canvas id="imageCanvas"></canvas>
 
-      <!-- Floating Controls -->
       <div class="floating-controls">
         <button class="floating-btn" onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
         <button class="floating-btn" onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
         <button class="floating-btn" onclick="resetView()" title="Reset View"><i class="bi bi-arrows-angle-contract"></i></button>
       </div>
 
-      <!-- Bottom AI Dock -->
       <div class="ai-dock">
         <div class="d-flex align-items-center gap-2 border-end border-secondary pe-3">
           <i class="bi bi-cpu-fill fs-3 text-info"></i>
           <div>
-            <div class="fw-bold small">AI Analysis</div>
+            <div class="fw-bold small">Status</div>
             <div class="text-muted" style="font-size:0.7rem;" id="aiStatus">Ready</div>
           </div>
         </div>
@@ -265,43 +283,17 @@
 
         <div class="counter-badge border-end border-secondary pe-3">
           <span class="val val-total" id="dockTotalCount">0</span>
-          <span class="lbl">Adjusted Total</span>
+          <span class="lbl">Total Count</span>
         </div>
 
         <div class="d-flex flex-column gap-1">
-          <button class="btn btn-sm btn-primary fw-bold" onclick="runAIAnalysis()"><i class="bi bi-magic me-1"></i> AI Count</button>
-          <button class="btn btn-sm btn-outline-info" style="font-size:0.75rem;" onclick="autoPopulateAI()"><i class="bi bi-geo-alt-fill me-1"></i> Auto-Populate Markers</button>
+          <button class="btn btn-sm btn-primary fw-bold" onclick="runAIAnalysis()"><i class="bi bi-magic me-1"></i> Vision AI Count</button>
+          <button class="btn btn-sm btn-outline-info" style="font-size:0.75rem;" onclick="startSpinePlacement()"><i class="bi bi-geo-alt-fill me-1"></i> Set Spine Line Markers</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Guide Modal -->
-  <div class="modal fade" id="guideModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title"><i class="bi bi-book me-2"></i> Anatomical Landmarks</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <h6>1. Weberian Apparatus (W)</h6>
-          <p class="small text-muted">First 4 anterior vertebrae (V1-V4) behind skull. Highly modified, lacking normal ribs.</p>
-          
-          <h6>2. Precaudal Vertebrae (Pre)</h6>
-          <p class="small text-muted">Rib-bearing abdominal vertebrae (typically Pre 1-12 in <i>A. mexicanus</i>).</p>
-
-          <h6>3. Caudal Vertebrae (Cau)</h6>
-          <p class="small text-muted">Hemal spine-bearing vertebrae extending to the tail base (typically Cau 13-30).</p>
-
-          <h6>4. Urostyle (U)</h6>
-          <p class="small text-muted">Terminal upward-tilted fused centrum supporting caudal fin rays.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const canvas = document.getElementById('imageCanvas');
     const ctx = canvas.getContext('2d');
@@ -319,10 +311,19 @@
     let startPanY = 0;
     let isSpacePressed = false;
 
+    // Spine Line Placement State
+    let placementStep = 0; // 0: off, 1: click start, 2: click end
+    let lineStart = null;
+
     function setMode(newMode) {
       mode = newMode;
       document.getElementById('btnPrecaudal').className = `btn btn-mode ${mode==='precaudal'?'active-pre':''} text-start d-flex justify-content-between align-items-center`;
       document.getElementById('btnCaudal').className = `btn btn-mode ${mode==='caudal'?'active-cau':''} text-start d-flex justify-content-between align-items-center`;
+    }
+
+    function resetAPIKey() {
+      localStorage.removeItem('openai_api_key');
+      alert('API key removed. You will be prompted for a new one next time you click Vision AI Count.');
     }
 
     function handleImageUpload(e) {
@@ -351,12 +352,6 @@
       tctx.fillStyle = '#050508';
       tctx.fillRect(0, 0, 1000, 500);
 
-      tctx.strokeStyle = '#2a3b5c';
-      tctx.lineWidth = 3;
-      tctx.beginPath();
-      tctx.ellipse(500, 250, 400, 150, 0, 0, Math.PI * 2);
-      tctx.stroke();
-
       tctx.strokeStyle = '#88c0d0';
       tctx.lineWidth = 4;
       tctx.beginPath();
@@ -364,8 +359,8 @@
       tctx.lineTo(850, 250);
       tctx.stroke();
 
-      tctx.fillStyle = '#ffffff';
       for(let x = 160; x <= 840; x += 22) {
+        tctx.fillStyle = '#ffffff';
         tctx.beginPath();
         tctx.arc(x, 250, 5, 0, Math.PI * 2);
         tctx.fill();
@@ -420,17 +415,58 @@
       ctx.restore();
     }
 
+    function startSpinePlacement() {
+      if (!currentImage) return alert('Please upload an image first.');
+      placementStep = 1;
+      const banner = document.getElementById('bannerInstruction');
+      banner.innerText = 'Click anterior (head) end of spine';
+      banner.style.display = 'block';
+    }
+
     wrapper.addEventListener('click', (e) => {
       if (isPanning || !currentImage) return;
       const rect = canvas.getBoundingClientRect();
       const clickX = (e.clientX - rect.left - panX) / scale;
       const clickY = (e.clientY - rect.top - panY) / scale;
 
-      if (clickX >= 0 && clickX <= currentImage.width && clickY >= 0 && clickY <= currentImage.height) {
-        points.push({ x: clickX, y: clickY, type: mode });
+      if (clickX < 0 || clickX > currentImage.width || clickY < 0 || clickY > currentImage.height) return;
+
+      if (placementStep === 1) {
+        lineStart = { x: clickX, y: clickY };
+        placementStep = 2;
+        const banner = document.getElementById('bannerInstruction');
+        banner.innerText = 'Click posterior (tail) end of spine';
+        return;
+      }
+
+      if (placementStep === 2) {
+        const lineEnd = { x: clickX, y: clickY };
+        placementStep = 0;
+        document.getElementById('bannerInstruction').style.display = 'none';
+
+        points = [];
+        const numPre = 10;
+        const numCau = 15;
+        const total = numPre + numCau;
+
+        for (let i = 0; i < total; i++) {
+          const t = i / (total - 1);
+          const px = lineStart.x + t * (lineEnd.x - lineStart.x);
+          const py = lineStart.y + t * (lineEnd.y - lineStart.y);
+          points.push({
+            x: px,
+            y: py,
+            type: i < numPre ? 'precaudal' : 'caudal'
+          });
+        }
         updateCounts();
         render();
+        return;
       }
+
+      points.push({ x: clickX, y: clickY, type: mode });
+      updateCounts();
+      render();
     });
 
     wrapper.addEventListener('wheel', (e) => {
@@ -514,7 +550,6 @@
       }
     }
 
-    // Vision AI Integration
     async function runAIAnalysis() {
       const statusEl = document.getElementById('aiStatus');
 
@@ -525,12 +560,12 @@
 
       let apiKey = localStorage.getItem('openai_api_key');
       if (!apiKey) {
-        apiKey = prompt('Enter your OpenAI API Key:');
+        apiKey = prompt('Enter your secret OpenAI API Key (starts with sk-...):');
         if (!apiKey) return;
-        localStorage.setItem('openai_api_key', apiKey);
+        localStorage.setItem('openai_api_key', apiKey.trim());
       }
 
-      statusEl.innerText = 'Analyzing image with AI...';
+      statusEl.innerText = 'Calling OpenAI API...';
 
       try {
         const tempCanvas = document.createElement('canvas');
@@ -538,7 +573,7 @@
         tempCanvas.height = currentImage.height;
         const tctx = tempCanvas.getContext('2d');
         tctx.drawImage(currentImage, 0, 0);
-        const base64Image = tempCanvas.toDataURL('image/jpeg').split(',')[1];
+        const base64Image = tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -554,7 +589,7 @@
                 content: [
                   {
                     type: 'text',
-                    text: 'You are an expert ichthyologist analyzing a fish X-ray. Count the vertebrae using these strict rules:\n1. Exclude the Weberian apparatus (first 4 anterior vertebrae, V1-V4).\n2. Count Precaudal vertebrae (rib-bearing abdominal vertebrae after V4).\n3. Count Caudal vertebrae (hemal spine-bearing vertebrae).\n4. Exclude the terminal urostyle.\n\nRespond ONLY with a raw JSON object formatted like this: {"precaudal": 10, "caudal": 15, "notes": "Any fused vertebrae observed"}'
+                    text: 'You are an expert ichthyologist analyzing a fish X-ray. Count the vertebrae using these rules:\n1. Precaudal vertebrae (rib-bearing abdominal vertebrae).\n2. Caudal vertebrae (hemal spine-bearing vertebrae).\n\nRespond ONLY in valid raw JSON with no markdown tags: {"precaudal": 10, "caudal": 15}'
                   },
                   {
                     type: 'image_url',
@@ -565,21 +600,21 @@
                 ]
               }
             ],
-            max_tokens: 300
+            max_tokens: 200
           })
         });
 
         const data = await response.json();
         
         if (data.error) {
+          alert('OpenAI API Error: ' + data.error.message);
           statusEl.innerText = 'Error: ' + data.error.message;
           return;
         }
 
-        const content = data.choices[0].message.content.trim().replace(/```json|```/g, '');
-        const result = JSON.parse(content);
+        const rawContent = data.choices[0].message.content.trim().replace(/```json|```/g, '');
+        const result = JSON.parse(rawContent);
 
-        // Update counts cleanly
         document.getElementById('dockPreCount').innerText = result.precaudal;
         document.getElementById('dockCauCount').innerText = result.caudal;
 
@@ -587,58 +622,34 @@
         const exU = document.getElementById('exUrostyle').checked ? 1 : 0;
         document.getElementById('dockTotalCount').innerText = (result.precaudal + result.caudal) - exW - exU;
 
-        statusEl.innerText = `AI Done: ${result.precaudal} Pre / ${result.caudal} Cau (${result.notes || 'No fusions'})`;
+        statusEl.innerText = `AI Done: ${result.precaudal} Pre / ${result.caudal} Cau`;
 
       } catch (err) {
         console.error(err);
-        statusEl.innerText = 'Analysis failed. Check console.';
+        alert('Failed to connect to OpenAI: ' + err.message);
+        statusEl.innerText = 'API Connection Failed.';
       }
-    }
-
-    // Auto-Populate Markers positioned along image midline
-    function autoPopulateAI() {
-      if (!currentImage) return;
-      points = [];
-      
-      const width = currentImage.width;
-      const height = currentImage.height;
-      const startX = width * 0.22;
-      const endX = width * 0.82;
-      const numPre = 10;
-      const numCau = 15;
-      const totalPoints = numPre + numCau;
-      const step = (endX - startX) / totalPoints;
-      const midY = height * 0.5;
-
-      for (let i = 0; i < numPre; i++) {
-        const x = startX + (i * step);
-        const y = midY + Math.sin(i * 0.3) * (height * 0.02);
-        points.push({ x: x, y: y, type: 'precaudal' });
-      }
-
-      for (let i = 0; i < numCau; i++) {
-        const x = startX + ((numPre + i) * step);
-        const y = midY + Math.sin((numPre + i) * 0.3) * (height * 0.02);
-        points.push({ x: x, y: y, type: 'caudal' });
-      }
-
-      updateCounts();
-      render();
-      document.getElementById('aiStatus').innerText = 'Markers Populated Along Spine';
     }
 
     function exportCSV() {
-      if (points.length === 0) return alert('No points to export!');
-      let csv = 'Point_ID,Type,X_Coord,Y_Coord\n';
-      points.forEach((pt, idx) => {
-        csv += `${idx + 1},${pt.type},${Math.round(pt.x)},${Math.round(pt.y)}\n`;
-      });
+      const species = (document.getElementById('metaSpecies').value || 'Unspecified').replace(/,/g, '');
+      const brood = (document.getElementById('metaBrood').value || 'Unspecified').replace(/,/g, '');
+      const sex = (document.getElementById('metaSex').value || 'Unspecified').replace(/,/g, '');
+
+      const preCount = points.filter(p => p.type === 'precaudal').length;
+      const cauCount = points.filter(p => p.type === 'caudal').length;
+      const exW = document.getElementById('exWeberian').checked ? 4 : 0;
+      const exU = document.getElementById('exUrostyle').checked ? 1 : 0;
+      const totalCount = Math.max(0, (preCount + cauCount) - exW - exU);
+
+      let csv = 'SPECIES NAME,BROOD ID,SEX,PRECADUAL COUNT,CADUAL COUNT,TOTAL COUNT\n';
+      csv += `${species},${brood},${sex},${preCount},${cauCount},${totalCount}\n`;
 
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'vertebral_coordinates.csv';
+      a.download = `fish_data_${brood || 'export'}.csv`;
       a.click();
     }
 
