@@ -150,7 +150,7 @@
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-cpu-fill text-info fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">ICHHTHO-PRO</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">ICHTHYO-PRO</span></h5>
     </div>
     <div class="d-flex gap-2 align-items-center">
       <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
@@ -183,12 +183,12 @@
         <!-- Baseline Reference Guide Card -->
         <div class="card bg-dark border-info p-2.5 mb-3 fs-7">
           <div class="fw-bold text-info mb-1"><i class="bi bi-info-circle-fill me-1"></i> Astyanax / Teleost Standard Rules</div>
-          <p class="text-muted mb-1">Based on standard ichthyological counting methods (Fig. 1 reference):</p>
+          <p class="text-muted mb-1">Enhanced accuracy pipeline with intensity-centroid magnetic snap:</p>
           <ul class="ps-3 mb-0 text-muted">
-            <li><strong>W (Weberian):</strong> First modified vertebrae (not included in standard count).</li>
-            <li><strong>Pre (Precaudal):</strong> Rib-bearing vertebrae ($1 \dots n$).</li>
+            <li><strong>Magnetic Centra Snap:</strong> Manual clicks automatically optimize onto local radiographic brightness peaks.</li>
+            <li><strong>Granular Undo:</strong> Every point movement, addition, or deletion is individually tracked (Ctrl+Z).</li>
+            <li><strong>W (Weberian):</strong> First modified vertebrae.</li>
             <li><strong>Cau (Caudal):</strong> Hemal spine-bearing vertebrae starting at $C_1$.</li>
-            <li><strong>U (Urostyle):</strong> Terminal structure (excluded from count).</li>
           </ul>
         </div>
 
@@ -235,7 +235,7 @@
           </div>
         </div>
 
-        <!-- Display Mode (Odd numbers only option as requested in example) -->
+        <!-- Display Mode -->
         <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-eye-fill me-1"></i> Publication Labeling Style</h6>
         <div class="card bg-dark border-secondary p-3 mb-3">
           <div class="form-check form-switch mb-2">
@@ -251,11 +251,14 @@
         <!-- Manual Digitizing Tools -->
         <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-tools me-1"></i> Manual Spine Path Tools</h6>
         <div class="d-grid gap-2 mb-3">
+          <button class="btn btn-sm btn-outline-warning text-start" onclick="undoLastAction()">
+            <i class="bi bi-arrow-counterclockwise me-2"></i> Undo Last Action <small class="text-muted">(Ctrl+Z)</small>
+          </button>
           <button class="btn btn-sm btn-outline-info text-start" onclick="startSpinePlacement(event)">
             <i class="bi bi-vector-pen me-2"></i> Redraw Spine Path (Head &rarr; Tail)
           </button>
-          <button class="btn btn-sm btn-outline-warning text-start" onclick="flipSpineDirection()">
-            <i class="bi bi-arrow-left-right me-2"></i> Reverse Spine Orientation (Flip Head/Tail)
+          <button class="btn btn-sm btn-outline-secondary text-start" onclick="flipSpineDirection()">
+            <i class="bi bi-arrow-left-right me-2"></i> Reverse Spine Orientation (Head/Tail)
           </button>
           <button class="btn btn-sm btn-outline-secondary text-start" onclick="toggleSelectedAsFused()">
             <i class="bi bi-link me-2 text-warning"></i> Toggle Selected Node as Fused (e.g. #18-19)
@@ -313,7 +316,7 @@
         
         <div class="anatomical-card mb-2 border-purple">
           <div class="fw-bold text-purple mb-1" style="color:var(--w-color)"><i class="bi bi-1-circle me-1"></i> Weberian Apparatus ($W$)</div>
-          <p class="mb-0 text-muted">Anterior modified vertebrae (usually 4 in otophysans like Astyanax) connecting swim bladder to inner ear. Labelled as $W_1$ to $W_4$ and typically excluded from standard vertebra counts.</p>
+          <p class="mb-0 text-muted">Anterior modified vertebrae connecting swim bladder to inner ear. Labelled as $W_1$ to $W_4$ and typically excluded from standard vertebra counts.</p>
         </div>
 
         <div class="anatomical-card mb-2 border-danger">
@@ -328,7 +331,7 @@
 
         <div class="anatomical-card border-warning">
           <div class="fw-bold text-warning mb-1"><i class="bi bi-exclamation-triangle me-1"></i> Fused Vertebrae & Urostyle ($U$)</div>
-          <p class="mb-0 text-muted">Fused centra (e.g. vertebrae 18-19 sharing a single combined centrum body with bifurcated haemal spines) count as individual units in total counts. The terminal Urostyle ($U$) is excluded.</p>
+          <p class="mb-0 text-muted">Fused centra sharing a single combined centrum body with bifurcated haemal spines count as individual units in total counts.</p>
         </div>
       </div>
     </div>
@@ -338,8 +341,12 @@
       <div id="bannerInstruction" class="banner-instruction"></div>
       <canvas id="imageCanvas"></canvas>
 
+      <!-- Hidden processing canvas for pixel-level centroid extraction -->
+      <canvas id="processingCanvas" style="display:none;"></canvas>
+
       <!-- Floating Canvas Tools -->
       <div class="floating-controls">
+        <button class="floating-btn" onclick="undoLastAction()" title="Undo Last Action (Ctrl+Z)"><i class="bi bi-arrow-counterclockwise"></i></button>
         <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Toggle Pan Tool"><i class="bi bi-hand-index-thumb"></i></button>
         <button class="floating-btn" onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
         <button class="floating-btn" onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
@@ -401,6 +408,7 @@
   <script>
     const $ = id => document.getElementById(id);
     const canvas = $('imageCanvas'), ctx = canvas.getContext('2d'), wrapper = $('canvasWrapper');
+    const procCanvas = $('processingCanvas'), procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
     const UI_SEL = '.ai-dock, .floating-controls';
 
     // Application State
@@ -415,6 +423,35 @@
     let spineNodes = [], currentHoverPos = null;
     let geminiApiKey = localStorage.getItem('VERTEBRA_GEMINI_KEY') || '';
 
+    // Granular History Stack for Undo Support
+    let undoStack = [];
+    const MAX_HISTORY = 50;
+
+    function saveState() {
+      undoStack.push({
+        points: JSON.parse(JSON.stringify(points)),
+        spineNodes: JSON.parse(JSON.stringify(spineNodes)),
+        numWeberian,
+        firstCaudalIndex
+      });
+      if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    }
+
+    function undoLastAction() {
+      if (undoStack.length === 0) {
+        alert('No actions to undo.');
+        return;
+      }
+      const prevState = undoStack.pop();
+      points = prevState.points;
+      spineNodes = prevState.spineNodes;
+      numWeberian = prevState.numWeberian;
+      firstCaudalIndex = prevState.firstCaudalIndex;
+      selectedPointIdx = null;
+      updateUIStats();
+      render();
+    }
+
     // Batch Management
     let batchQueue = [];
     let currentBatchIndex = -1;
@@ -425,6 +462,65 @@
       geminiApiKey = $('geminiApiKeyInput').value.trim();
       localStorage.setItem('VERTEBRA_GEMINI_KEY', geminiApiKey);
       alert('Gemini API Key saved successfully!');
+    }
+
+    /* ---------- Accuracy Enhancement: Magnetic Centra Snap ---------- */
+    // Computes image brightness centroid within a search radius (14px) to snap point to actual bone center
+    function refinePointWithCentroid(rawX, rawY) {
+      if (!currentImage) return { x: rawX, y: rawY };
+      
+      const radius = 14;
+      const imgW = currentImage.width;
+      const imgH = currentImage.height;
+      
+      const xStart = Math.max(0, Math.floor(rawX - radius));
+      const yStart = Math.max(0, Math.floor(rawY - radius));
+      const xEnd = Math.min(imgW, Math.floor(rawX + radius));
+      const yEnd = Math.min(imgH, Math.floor(rawY + radius));
+      
+      const wBox = xEnd - xStart;
+      const hBox = yEnd - yStart;
+      if (wBox <= 0 || hBox <= 0) return { x: rawX, y: rawY };
+
+      if (procCanvas.width !== imgW || procCanvas.height !== imgH) {
+        procCanvas.width = imgW;
+        procCanvas.height = imgH;
+        procCtx.drawImage(currentImage, 0, 0);
+      }
+
+      try {
+        const imgData = procCtx.getImageData(xStart, yStart, wBox, hBox);
+        const data = imgData.data;
+        let totalWeight = 0;
+        let sumX = 0;
+        let sumY = 0;
+
+        for (let py = 0; py < hBox; py++) {
+          for (let px = 0; px < wBox; px++) {
+            const idx = (py * wBox + px) * 4;
+            // Radiopaque bone is bright (use luminance)
+            const luminance = (data[idx] * 0.299 + data[idx+1] * 0.587 + data[idx+2] * 0.114);
+            // Weight heavier for peaks above baseline background
+            const weight = Math.pow(luminance / 255, 3); 
+            
+            totalWeight += weight;
+            sumX += (xStart + px) * weight;
+            sumY += (yStart + py) * weight;
+          }
+        }
+
+        if (totalWeight > 0) {
+          const cx = sumX / totalWeight;
+          const cy = sumY / totalWeight;
+          // Only snap if within reasonable distance of click
+          if (Math.hypot(cx - rawX, cy - rawY) <= radius) {
+            return { x: cx, y: cy };
+          }
+        }
+      } catch (err) {
+        console.warn("Centroid refinement skipped:", err);
+      }
+      return { x: rawX, y: rawY };
     }
 
     /* ---------- Catmull-Rom Spline Interpolation ---------- */
@@ -452,10 +548,11 @@
       return fullCurve;
     }
 
-    /* ---------- Gemini Vision AI Integration & Ichthyological Heuristics ---------- */
+    /* ---------- Gemini Vision AI Integration & Heuristics ---------- */
     async function runGeminiVisionAI() {
       if (!currentImage) return alert('Please load a radiograph image first.');
       
+      saveState();
       $('aiStatusBadge').className = 'badge bg-warning text-dark';
       $('aiStatusBadge').innerText = 'Analyzing...';
 
@@ -481,12 +578,11 @@
         tctx.drawImage(currentImage, 0, 0, w, h);
         const base64Data = tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
 
-        const prompt = `You are an expert ichthyologist. Analyze this fish radiograph using standard osteological criteria (similar to Astyanax mexicanus):
+        const prompt = `You are an expert ichthyologist. Analyze this fish radiograph using standard osteological criteria:
 1. Detect all vertebral centra from anterior head to posterior urostyle.
 2. Identify Weberian apparatus (typically first 4 vertebrae, W1-W4).
 3. Identify Precaudal vertebrae (rib-bearing).
 4. Identify Caudal vertebrae (starting at C1 where closed haemal arches begin).
-5. Detect any fused vertebral anomalies (e.g., fused vertebrae 18-19).
 Return JSON only:
 {
   "weberian_count": 4,
@@ -514,11 +610,13 @@ Return JSON only:
         if (jsonText) {
           const parsed = JSON.parse(jsonText);
           if (parsed.vertebrae && parsed.vertebrae.length) {
-            points = parsed.vertebrae.map(pt => ({
-              x: (pt.x / 1000) * currentImage.width,
-              y: (pt.y / 1000) * currentImage.height,
-              fused: !!pt.fused
-            }));
+            points = parsed.vertebrae.map(pt => {
+              const rawX = (pt.x / 1000) * currentImage.width;
+              const rawY = (pt.y / 1000) * currentImage.height;
+              // Refine each AI point with high-precision magnetic centroid snap
+              const refined = refinePointWithCentroid(rawX, rawY);
+              return { x: refined.x, y: refined.y, fused: !!pt.fused };
+            });
             if (parsed.weberian_count) numWeberian = parsed.weberian_count;
             if (parsed.first_caudal_index) firstCaudalIndex = parsed.first_caudal_index;
             reclassifyRegions();
@@ -546,12 +644,13 @@ Return JSON only:
       }
       
       const fullCurve = generateSmoothSpline(spineNodes);
-      const totalVertebrae = 30; // Standard Teleost baseline count (e.g. Astyanax)
+      const totalVertebrae = 30; // Baseline Teleost count
       points = [];
       
       for (let i = 0; i < totalVertebrae; i++) {
         const idx = Math.floor((i / (totalVertebrae - 1)) * (fullCurve.length - 1));
-        points.push({ x: fullCurve[idx].x, y: fullCurve[idx].y, fused: false });
+        const refined = refinePointWithCentroid(fullCurve[idx].x, fullCurve[idx].y);
+        points.push({ x: refined.x, y: refined.y, fused: false });
       }
 
       numWeberian = 4;
@@ -572,6 +671,7 @@ Return JSON only:
     }
 
     function updateRegionSplits() {
+      saveState();
       numWeberian = parseInt($('wSlider').value);
       firstCaudalIndex = parseInt($('c1Slider').value);
       reclassifyRegions();
@@ -579,12 +679,14 @@ Return JSON only:
 
     function toggleSelectedAsFused() {
       if (selectedPointIdx === null) return alert('Click a landmark point on the canvas first to select it.');
+      saveState();
       points[selectedPointIdx].fused = !points[selectedPointIdx].fused;
       updateUIStats();
       render();
     }
 
     function flipSpineDirection() {
+      saveState();
       points.reverse();
       spineNodes.reverse();
       reclassifyRegions();
@@ -616,7 +718,7 @@ Return JSON only:
       $('c1IndexDisplay').innerText = `C1 = #${firstCaudalIndex}`;
     }
 
-    /* ---------- Labeling System (Matching Astyanax Figure 1 Example) ---------- */
+    /* ---------- Labeling System ---------- */
     function getFormattedLabels() {
       let w = 0, pre = 0, cau = 0;
       return points.map((pt, i) => {
@@ -662,13 +764,12 @@ Return JSON only:
         const isLast = (n === total);
         const isOdd = (n % 2 !== 0);
 
-        // Determine color based on region & anomaly status
         let color = '#00f2fe';
         if (pt.region === 'weberian') color = '#a855f7';
         else if (pt.region === 'precaudal') color = '#ff4d4d';
         else if (pt.region === 'caudal') color = '#00f2fe';
 
-        if (pt.fused) color = '#eab308'; // Fused vertebra highlight (e.g. #18-19)
+        if (pt.fused) color = '#eab308';
 
         // Draw Landmark Circle
         ctx.beginPath();
@@ -679,7 +780,6 @@ Return JSON only:
         ctx.fill();
         ctx.stroke();
 
-        // Label Filtering: Show label if Odd Number OR Weberian OR Last Vertebra OR Selected
         const shouldShowLabel = !oddOnly || isOdd || isLast || isSelected || pt.region === 'weberian' || pt.fused;
 
         if (shouldShowLabel) {
@@ -746,6 +846,7 @@ Return JSON only:
       if (idx !== -1) {
         selectedPointIdx = idx;
         if (e.shiftKey) {
+          saveState();
           firstCaudalIndex = idx + 1;
           updateRegionSplits();
           return;
@@ -766,8 +867,9 @@ Return JSON only:
       }
       if (draggingPoint !== null) {
         const c = getCanvasCoords(e);
-        points[draggingPoint].x = c.x;
-        points[draggingPoint].y = c.y;
+        const refined = refinePointWithCentroid(c.x, c.y);
+        points[draggingPoint].x = refined.x;
+        points[draggingPoint].y = refined.y;
         render();
         return;
       }
@@ -799,12 +901,14 @@ Return JSON only:
       }
 
       if (placementStep === 0 && hitPoint(e) === -1) {
+        saveState(); // Granular history snapshot for manual addition
+        const refined = refinePointWithCentroid(c.x, c.y);
         let bestIdx = points.length, minDist = Infinity;
         points.forEach((pt, i) => {
-          const d = Math.hypot(pt.x - c.x, pt.y - c.y);
+          const d = Math.hypot(pt.x - refined.x, pt.y - refined.y);
           if (d < minDist) { minDist = d; bestIdx = i; }
         });
-        points.splice(bestIdx, 0, { x: c.x, y: c.y, fused: false });
+        points.splice(bestIdx, 0, { x: refined.x, y: refined.y, fused: false });
         reclassifyRegions();
       }
     });
@@ -813,6 +917,7 @@ Return JSON only:
       e.preventDefault();
       const idx = hitPoint(e);
       if (idx !== -1) {
+        saveState(); // Granular history snapshot for point deletion
         points.splice(idx, 1);
         reclassifyRegions();
       }
@@ -822,6 +927,7 @@ Return JSON only:
     function startSpinePlacement(e) {
       if (e) e.stopPropagation();
       if (!currentImage) return alert('Please load a radiograph first.');
+      saveState();
       placementStep = 1;
       spineNodes = [];
       currentHoverPos = null;
@@ -845,6 +951,10 @@ Return JSON only:
 
     window.addEventListener('keydown', e => {
       if (e.target.tagName === 'INPUT') return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undoLastAction();
+      }
       if (e.key === 'Escape') { placementStep = 0; hideBanner(); render(); }
       if (e.key === 'Enter' && placementStep === 1) finishPlacement();
       if (e.key === 'Backspace' && placementStep === 1) { spineNodes.pop(); render(); }
@@ -942,7 +1052,9 @@ Return JSON only:
         const img = new Image();
         img.onload = () => {
           currentImage = img;
-          points = []; spineNodes = []; placementStep = 0; hideBanner();
+          points = []; spineNodes = []; placementStep = 0; undoStack = []; hideBanner();
+          // Reset processing canvas cache for new image
+          procCanvas.width = 0; procCanvas.height = 0;
           resetView();
           runIchthyologicalHeuristicAI();
         };
