@@ -3,116 +3,242 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fish Vertebral Digitizer & Peak Detector</title>
+  <title>VertebraDigitizer Pro - High-Throughput Curved Spine Analysis</title>
+  <!-- Bootstrap 5 CSS & Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
-    :root { --pre: #ff4d4d; --cau: #00f2fe; --bg-dark: #0f1117; --panel-bg: rgba(20,24,33,.95); --border-color: rgba(255,255,255,.12); }
-    body { background: var(--bg-dark); color: #e2e8f0; font-family: 'Segoe UI', -apple-system, Roboto, sans-serif; overflow: hidden; height: 100vh; margin: 0; }
-    .app-header { background: var(--panel-bg); border-bottom: 1px solid var(--border-color); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; z-index: 100; }
-    .main-container { display: flex; height: calc(100vh - 56px); position: relative; }
-    .sidebar { width: 360px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; overflow-y: auto; flex-shrink: 0; }
-    .canvas-wrapper { flex: 1; position: relative; overflow: hidden; background: #05070a; user-select: none; }
+    :root {
+      --pre: #ff4d4d;
+      --cau: #00f2fe;
+      --bg-dark: #0b0e14;
+      --panel-bg: rgba(18, 22, 31, 0.95);
+      --border-color: rgba(255, 255, 255, 0.12);
+    }
+    body {
+      background: var(--bg-dark);
+      color: #e2e8f0;
+      font-family: 'Segoe UI', -apple-system, Roboto, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      margin: 0;
+    }
+    .app-header {
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+    .main-container {
+      display: flex;
+      height: calc(100vh - 56px);
+      position: relative;
+    }
+    .sidebar {
+      width: 380px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .canvas-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #030406;
+      user-select: none;
+    }
     .canvas-wrapper.mode-draw { cursor: crosshair; }
     .canvas-wrapper.mode-pan { cursor: grab; }
     .canvas-wrapper.mode-pan:active { cursor: grabbing; }
     #imageCanvas { position: absolute; top: 0; left: 0; }
-    .ai-dock { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel-bg); border: 1px solid var(--border-color); box-shadow: 0 12px 40px rgba(0,0,0,.6); border-radius: 16px; padding: 12px 24px; display: flex; align-items: center; gap: 24px; z-index: 20; cursor: default; }
-    .counter-badge { display: flex; flex-direction: column; align-items: center; min-width: 75px; }
-    .counter-badge .val { font-size: 1.5rem; font-weight: 700; line-height: 1; }
-    .counter-badge .lbl { font-size: .7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+    .ai-dock {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 12px 40px rgba(0,0,0,.7);
+      border-radius: 16px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      z-index: 20;
+    }
+    .counter-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 65px;
+    }
+    .counter-badge .val { font-size: 1.4rem; font-weight: 700; line-height: 1; }
+    .counter-badge .lbl { font-size: .65rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
     .val-pre { color: var(--pre); } .val-cau { color: var(--cau); } .val-total { color: #38bdf8; }
-    .btn-mode { border: 2px solid transparent; padding: 8px 14px; border-radius: 8px; font-weight: 600; color: #e2e8f0; }
+    .btn-mode { border: 2px solid transparent; padding: 6px 12px; border-radius: 8px; font-weight: 600; color: #e2e8f0; }
     .btn-mode.active-pre { background: rgba(255,77,77,.2); border-color: var(--pre); color: #fff; }
     .btn-mode.active-cau { background: rgba(0,242,254,.2); border-color: var(--cau); color: #fff; }
     .floating-controls { position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
-    .floating-btn { width: 42px; height: 42px; border-radius: 10px; background: var(--panel-bg); border: 1px solid var(--border-color); color: #fff; display: flex; align-items: center; justify-content: center; }
-    .floating-btn:hover, .floating-btn.active { background: rgba(255,255,255,.15); color: #38bdf8; }
-    .banner-instruction { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(245,158,11,.95); color: #000; font-weight: 700; padding: 8px 20px; border-radius: 20px; z-index: 30; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.4); pointer-events: none; }
-    #graphCanvas { width: 100%; height: 120px; background: #090c10; border: 1px solid var(--border-color); border-radius: 8px; }
-    .fs-7 { font-size: .8rem; }
+    .floating-btn { width: 40px; height: 40px; border-radius: 10px; background: var(--panel-bg); border: 1px solid var(--border-color); color: #fff; display: flex; align-items: center; justify-content: center; }
+    .floating-btn:hover, .floating-btn.active { background: rgba(255,255,255,.2); color: #38bdf8; }
+    .banner-instruction {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(245,158,11,.95);
+      color: #000;
+      font-weight: 700;
+      padding: 8px 20px;
+      border-radius: 20px;
+      z-index: 30;
+      display: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+      pointer-events: none;
+    }
+    #graphCanvas { width: 100%; height: 110px; background: #06080c; border: 1px solid var(--border-color); border-radius: 8px; }
+    .fs-7 { font-size: .78rem; }
+    .batch-list-item {
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid transparent;
+      margin-bottom: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+    .batch-list-item:hover { background: rgba(255,255,255,0.08); }
+    .batch-list-item.active { border-color: #38bdf8; background: rgba(56,189,248,0.15); font-weight: bold; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .status-pending { background-color: #6c757d; }
+    .status-done { background-color: #10b981; }
+    .status-active { background-color: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+    .tab-btn { background: none; border: none; color: #94a3b8; padding: 6px 12px; border-bottom: 2px solid transparent; font-weight: 600; font-size: 0.85rem; }
+    .tab-btn.active { color: #38bdf8; border-bottom-color: #38bdf8; }
   </style>
 </head>
 <body>
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-cpu-fill text-info fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-success fs-6 ms-2">1D Peak Detection</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">PRO (Batch & Spline)</span></h5>
     </div>
-    <label class="btn btn-sm btn-primary mb-0">
-      <i class="bi bi-upload me-1"></i> Upload X-Ray Image
-      <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImageUpload(event)">
-    </label>
+    <div class="d-flex gap-2 align-items-center">
+      <label class="btn btn-sm btn-outline-info mb-0">
+        <i class="bi bi-images me-1"></i> Add Batch (200+ Images)
+        <input type="file" id="batchInput" accept="image/*" multiple hidden onchange="handleBatchUpload(event)">
+      </label>
+      <button class="btn btn-sm btn-success" onclick="exportMasterBatchCSV()"><i class="bi bi-filetype-csv me-1"></i> Export Master Batch CSV</button>
+    </div>
   </header>
 
   <div class="main-container">
+    <!-- Sidebar -->
     <div class="sidebar p-3">
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> Peak Detection</h6>
-      <div class="mb-2">
-        <label class="form-label small mb-1 d-flex justify-content-between"><span>Min Peak Distance (window):</span><span id="sensitivityVal" class="fw-bold text-info">15 px</span></label>
-        <input type="range" class="form-range" id="sensitivitySlider" min="5" max="60" value="15" oninput="paramChanged()">
-      </div>
-      <div class="mb-2">
-        <label class="form-label small mb-1 d-flex justify-content-between"><span>Peak Prominence Threshold:</span><span id="prominenceVal" class="fw-bold text-info">12</span></label>
-        <input type="range" class="form-range" id="prominenceSlider" min="1" max="80" value="12" oninput="paramChanged()">
-      </div>
-      <div class="mb-2">
-        <label class="form-label small mb-1 d-flex justify-content-between"><span>Perpendicular Band (half-width):</span><span id="bandVal" class="fw-bold text-info">±6 px</span></label>
-        <input type="range" class="form-range" id="bandSlider" min="0" max="30" value="6" oninput="paramChanged()">
-      </div>
-      <div class="form-check form-switch mb-2">
-        <input class="form-check-input" type="checkbox" id="invertChk" onchange="paramChanged()">
-        <label class="form-check-label small" for="invertChk">Invert (detect dark centra / valleys)</label>
-      </div>
-      <div class="form-text text-muted mb-2" style="font-size:.7rem">Changing these re-runs detection and replaces the current points (manual edits are lost).</div>
-
-      <hr class="border-secondary my-2">
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-diagram-3-fill me-1"></i> Anatomical Boundary Split</h6>
-      <div class="mb-3">
-        <label class="form-label small mb-1 d-flex justify-content-between"><span>Number of Precaudal points:</span><span id="precaudalCountVal" class="fw-bold text-danger">10</span></label>
-        <input type="range" class="form-range" id="precaudalSplitSlider" min="1" max="30" value="10" oninput="updatePrecaudalSplit(this.value)">
-        <div class="form-text text-muted" style="font-size:.7rem">Points are ordered head → tail along the spine line; the first N are Precaudal, the rest Caudal.</div>
+      <!-- Tabs header -->
+      <div class="d-flex border-bottom border-secondary mb-3">
+        <button id="tabBtnControls" class="tab-btn active" onclick="switchTab('controls')"><i class="bi bi-sliders me-1"></i> Detection</button>
+        <button id="tabBtnBatch" class="tab-btn" onclick="switchTab('batch')"><i class="bi bi-collection me-1"></i> Queue (<span id="queueCount">0</span>)</button>
+        <button id="tabBtnDisplay" class="tab-btn" onclick="switchTab('display')"><i class="bi bi-eye me-1"></i> Image Controls</button>
       </div>
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-1"><i class="bi bi-graph-up me-1"></i> Intensity Profile</h6>
-      <canvas id="graphCanvas" class="mb-2"></canvas>
+      <!-- TAB 1: Detection Controls -->
+      <div id="tabSectionControls">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-diagram-3 me-1"></i> Spline & Peak Detection</h6>
+        <div class="mb-2">
+          <label class="form-label small mb-1 d-flex justify-content-between"><span>Min Peak Distance:</span><span id="sensitivityVal" class="fw-bold text-info">15 px</span></label>
+          <input type="range" class="form-range" id="sensitivitySlider" min="5" max="60" value="15" oninput="paramChanged()">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small mb-1 d-flex justify-content-between"><span>Prominence Threshold:</span><span id="prominenceVal" class="fw-bold text-info">12</span></label>
+          <input type="range" class="form-range" id="prominenceSlider" min="1" max="80" value="12" oninput="paramChanged()">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small mb-1 d-flex justify-content-between"><span>Normal Band Width:</span><span id="bandVal" class="fw-bold text-info">±6 px</span></label>
+          <input type="range" class="form-range" id="bandSlider" min="0" max="30" value="6" oninput="paramChanged()">
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="invertChk" onchange="paramChanged()">
+          <label class="form-check-label small" for="invertChk">Invert (detect dark centra / valleys)</label>
+        </div>
 
-      <hr class="border-secondary my-2">
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-hand-index-thumb me-1"></i> Mode & Tools</h6>
-      <div class="btn-group w-100 mb-2">
-        <button id="toolDrawBtn" class="btn btn-sm btn-outline-primary active" onclick="setTool('draw')"><i class="bi bi-geo-fill me-1"></i> Edit Points</button>
-        <button id="toolPanBtn" class="btn btn-sm btn-outline-primary" onclick="setTool('pan')"><i class="bi bi-arrows-move me-1"></i> Pan Canvas</button>
-      </div>
-      <div class="form-text text-muted mb-2" style="font-size:.7rem">Click: add point · Drag: move point · Right-click: delete point · Wheel: zoom · Middle-drag: pan</div>
+        <hr class="border-secondary my-2">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-pie-chart-fill me-1"></i> Anatomical Boundary Split</h6>
+        <div class="mb-3">
+          <label class="form-label small mb-1 d-flex justify-content-between"><span>Precaudal count:</span><span id="precaudalCountVal" class="fw-bold text-danger">10</span></label>
+          <input type="range" class="form-range" id="precaudalSplitSlider" min="1" max="50" value="10" oninput="updatePrecaudalSplit(this.value)">
+          <div class="form-text text-muted fs-7">First N detected vertebrae are classified as Precaudal; remainder Caudal.</div>
+        </div>
 
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2 mt-3"><i class="bi bi-palette me-1"></i> Manual Marker Type</h6>
-      <div class="d-grid gap-2 mb-2">
-        <button id="btnPrecaudal" class="btn btn-mode active-pre text-start d-flex justify-content-between align-items-center" onclick="setMode('precaudal')">
-          <span><i class="bi bi-record-circle-fill text-danger me-2"></i> Precaudal (Key 1)</span><span id="sideCountPre" class="badge bg-danger rounded-pill">0</span>
-        </button>
-        <button id="btnCaudal" class="btn btn-mode text-start d-flex justify-content-between align-items-center" onclick="setMode('caudal')">
-          <span><i class="bi bi-record-circle-fill text-info me-2"></i> Caudal (Key 2)</span><span id="sideCountCau" class="badge bg-info rounded-pill">0</span>
-        </button>
-      </div>
-      <div class="form-text text-muted mb-3" style="font-size:.7rem">Once a spine line exists, the split slider decides P/C for all points, including manual ones.</div>
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-1"><i class="bi bi-graph-up me-1"></i> Intensity Profile along Spline</h6>
+        <canvas id="graphCanvas" class="mb-2"></canvas>
 
-      <hr class="border-secondary my-2">
-      <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-download me-1"></i> Actions & Exports</h6>
-      <div class="d-grid gap-2">
-        <button class="btn btn-success btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2"></i> Export Landmark CSV</button>
-        <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Export Annotated PNG</button>
-        <button class="btn btn-outline-info btn-sm text-start" onclick="saveWorkspace()"><i class="bi bi-save me-2"></i> Save Workspace (JSON)</button>
-        <label class="btn btn-outline-info btn-sm text-start mb-0"><i class="bi bi-folder2-open me-2"></i> Load Workspace (JSON)
-          <input type="file" accept=".json,application/json" hidden onchange="loadWorkspace(event)">
-        </label>
-        <button class="btn btn-outline-danger btn-sm text-start" onclick="clearAll()"><i class="bi bi-trash me-2"></i> Clear Points</button>
+        <hr class="border-secondary my-2">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-rulers me-1"></i> Physical Calibration (Scale)</h6>
+        <div class="d-flex gap-2 align-items-center mb-2">
+          <button class="btn btn-sm btn-outline-warning flex-grow-1" onclick="startScaleCalibration()"><i class="bi bi-bounding-box me-1"></i> Set 10mm Scale Line</button>
+          <span id="scaleStatusVal" class="badge bg-secondary">Uncalibrated</span>
+        </div>
+
+        <hr class="border-secondary my-2">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-download me-1"></i> Single Dataset Export</h6>
+        <div class="d-grid gap-2 mb-3">
+          <button class="btn btn-success btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2"></i> Export Current CSV</button>
+          <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Export High-Res PNG</button>
+        </div>
       </div>
+
+      <!-- TAB 2: Batch Queue -->
+      <div id="tabSectionBatch" style="display:none;">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="text-uppercase text-muted fw-bold fs-7 mb-0">Specimen Queue</h6>
+          <button class="btn btn-xs btn-outline-danger" onclick="clearBatchQueue()">Clear Queue</button>
+        </div>
+        <div id="batchContainer" style="max-height: 450px; overflow-y: auto;">
+          <div class="text-center text-muted p-4 fs-7">No images loaded in queue. Click "Add Batch" in top bar to load 200+ images.</div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Image Filters / Adjustments -->
+      <div id="tabSectionDisplay" style="display:none;">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders2 me-1"></i> Hardware Image Adjustments</h6>
+        <div class="mb-2">
+          <label class="form-label small mb-1">Brightness: <span id="brightnessVal">100%</span></label>
+          <input type="range" class="form-range" id="brightnessSlider" min="20" max="250" value="100" oninput="updateImageFilters()">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small mb-1">Contrast: <span id="contrastVal">100%</span></label>
+          <input type="range" class="form-range" id="contrastSlider" min="20" max="250" value="100" oninput="updateImageFilters()">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small mb-1">Grayscale Inversion</label>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="imgInvertChk" onchange="updateImageFilters()">
+            <label class="form-check-label small" for="imgInvertChk">Invert Visual Display</label>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary w-100 mt-2" onclick="resetImageFilters()">Reset Display Filters</button>
+      </div>
+
     </div>
 
+    <!-- Main Interactive Canvas Space -->
     <div class="canvas-wrapper mode-draw" id="canvasWrapper">
       <div id="bannerInstruction" class="banner-instruction"></div>
       <canvas id="imageCanvas"></canvas>
 
+      <!-- Zoom & View Tools -->
       <div class="floating-controls">
         <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Toggle Pan Tool"><i class="bi bi-hand-index-thumb"></i></button>
         <button class="floating-btn" onclick="zoomIn()"><i class="bi bi-zoom-in"></i></button>
@@ -120,146 +246,275 @@
         <button class="floating-btn" onclick="resetView()"><i class="bi bi-arrows-angle-contract"></i></button>
       </div>
 
+      <!-- Bottom Floating AI Dock -->
       <div class="ai-dock">
+        <button class="btn btn-sm btn-outline-light" onclick="prevBatchImage()"><i class="bi bi-chevron-left"></i> Prev (P)</button>
         <div class="counter-badge"><span class="val val-pre" id="dockPreCount">0</span><span class="lbl">Precaudal</span></div>
         <div class="counter-badge"><span class="val val-cau" id="dockCauCount">0</span><span class="lbl">Caudal</span></div>
-        <div class="counter-badge"><span class="val val-total" id="dockTotalCount">0</span><span class="lbl">Total</span></div>
-        <button class="btn btn-info text-dark fw-bold" onclick="startSpinePlacement(event)"><i class="bi bi-magic me-1"></i> Scan Spine Path</button>
+        <div class="counter-badge"><span class="val val-total" id="dockTotalCount">0</span><span class="lbl">Total Nodes</span></div>
+        <button class="btn btn-info text-dark fw-bold" onclick="startSpinePlacement(event)"><i class="bi bi-magic me-1"></i> Draw Curved Spine Spline</button>
+        <button class="btn btn-sm btn-outline-light" onclick="nextBatchImage()">Next (N) <i class="bi bi-chevron-right"></i></button>
       </div>
     </div>
   </div>
 
+  <!-- JavaScript Logic -->
   <script>
     const $ = id => document.getElementById(id);
     const canvas = $('imageCanvas'), ctx = canvas.getContext('2d'), wrapper = $('canvasWrapper');
     const graphCanvas = $('graphCanvas'), gctx = graphCanvas.getContext('2d');
     const UI_SEL = '.ai-dock, .floating-controls';
 
-    let currentImage = null, imgData = null, imageName = 'image';
+    // State Variables
+    let currentImage = null, imgData = null, imageName = 'specimen_001';
     let mode = 'precaudal', activeTool = 'draw';
-    let points = [];                      // { x, y, type }
+    let points = [];                      // Array of { x, y, type }
     let scale = 1, panX = 0, panY = 0, isPanning = false, startPanX = 0, startPanY = 0;
     let draggingPoint = null, suppressClick = false;
-    let placementStep = 0, lineStart = null, lineEnd = null, currentHoverPos = null;
+    let placementStep = 0;                // 0: Idle, 1: Curved Spine Draw, 2: Scale Calibration Line
+    let spineNodes = [], sampledSpline = [], spineCumLengths = [], currentHoverPos = null;
     let intensityProfile = [], detectedPeakIndices = [], precaudalBoundaryIndex = 10;
+    
+    // Scale Calibration
+    let pixelsPerMm = 0;
+    let scaleLine = null;
 
-    /* ---------- UI helpers ---------- */
-    function setTool(tool) {
-      activeTool = tool;
-      $('toolDrawBtn').className = `btn btn-sm btn-outline-primary ${tool === 'draw' ? 'active' : ''}`;
-      $('toolPanBtn').className = `btn btn-sm btn-outline-primary ${tool === 'pan' ? 'active' : ''}`;
-      $('btnPanToggle').className = `floating-btn ${tool === 'pan' ? 'active' : ''}`;
-      wrapper.className = tool === 'pan' ? 'canvas-wrapper mode-pan' : 'canvas-wrapper mode-draw';
-    }
-    function setMode(m) {
-      mode = m;
-      const cls = 'btn btn-mode text-start d-flex justify-content-between align-items-center';
-      $('btnPrecaudal').className = `${cls} ${m === 'precaudal' ? 'active-pre' : ''}`;
-      $('btnCaudal').className = `${cls} ${m === 'caudal' ? 'active-cau' : ''}`;
-    }
-    function showBanner(msg) { const b = $('bannerInstruction'); b.innerText = msg; b.style.display = 'block'; }
-    function hideBanner() { $('bannerInstruction').style.display = 'none'; }
-    function syncLabels() {
-      $('sensitivityVal').innerText = $('sensitivitySlider').value + ' px';
-      $('prominenceVal').innerText = $('prominenceSlider').value;
-      $('bandVal').innerText = '±' + $('bandSlider').value + ' px';
-    }
-    function resizeCanvas() { canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight; render(); }
-    window.addEventListener('resize', () => { resizeCanvas(); renderGraph(); });
+    // Batch Queue Manager (Support for 200+ images)
+    let batchQueue = [];
+    let currentBatchIndex = -1;
 
-    /* ---------- Image loading ---------- */
-    function handleImageUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+    // IndexedDB for Persistent Auto-Saving
+    let db = null;
+    function initDB() {
+      const request = indexedDB.open('VertebraDigitizerDB', 1);
+      request.onupgradeneeded = e => {
+        db = e.target.result;
+        if (!db.objectStoreNames.contains('specimens')) {
+          db.createObjectStore('specimens', { keyPath: 'imageName' });
+        }
+      };
+      request.onsuccess = e => { db = e.target.result; };
+    }
+    initDB();
+
+    function autoSaveCurrentSpecimen() {
+      if (!db || !currentImage) return;
+      const payload = {
+        imageName,
+        points,
+        spineNodes,
+        precaudalBoundaryIndex,
+        pixelsPerMm,
+        minDistance: +$('sensitivitySlider').value,
+        prominence: +$('prominenceSlider').value,
+        band: +$('bandSlider').value,
+        invertSignal: $('invertChk').checked,
+        timestamp: new Date().toISOString()
+      };
+      const tx = db.transaction('specimens', 'readwrite');
+      tx.objectStore('specimens').put(payload);
+      if (currentBatchIndex !== -1 && batchQueue[currentBatchIndex]) {
+        batchQueue[currentBatchIndex].status = 'done';
+        renderBatchQueue();
+      }
+    }
+
+    /* ---------- Catmull-Rom Curved Spline Calculation ---------- */
+    function catmullRomSpline(p0, p1, p2, p3, samples = 20) {
+      const pts = [];
+      for (let i = 0; i < samples; i++) {
+        const t = i / samples;
+        const t2 = t * t, t3 = t2 * t;
+        const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+        const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+        pts.push({ x, y });
+      }
+      return pts;
+    }
+
+    function generateSmoothSpline(nodes) {
+      if (nodes.length < 2) return [...nodes];
+      const padded = [nodes[0], ...nodes, nodes[nodes.length - 1]];
+      const fullCurve = [];
+      for (let i = 0; i < padded.length - 3; i++) {
+        const seg = catmullRomSpline(padded[i], padded[i+1], padded[i+2], padded[i+3], 25);
+        fullCurve.push(...seg);
+      }
+      fullCurve.push(nodes[nodes.length - 1]);
+      return fullCurve;
+    }
+
+    /* ---------- Navigation & Batch Management ---------- */
+    function switchTab(tab) {
+      $('tabSectionControls').style.display = tab === 'controls' ? 'block' : 'none';
+      $('tabSectionBatch').style.display = tab === 'batch' ? 'block' : 'none';
+      $('tabSectionDisplay').style.display = tab === 'display' ? 'block' : 'none';
+      $('tabBtnControls').className = `tab-btn ${tab === 'controls' ? 'active' : ''}`;
+      $('tabBtnBatch').className = `tab-btn ${tab === 'batch' ? 'active' : ''}`;
+      $('tabBtnDisplay').className = `tab-btn ${tab === 'display' ? 'active' : ''}`;
+    }
+
+    function handleBatchUpload(e) {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+      files.forEach(file => {
+        batchQueue.push({
+          file,
+          name: file.name.replace(/\.[^.]+$/, ''),
+          status: 'pending'
+        });
+      });
+      $('queueCount').innerText = batchQueue.length;
+      renderBatchQueue();
+      if (currentBatchIndex === -1) loadBatchItem(0);
+      switchTab('batch');
+      e.target.value = '';
+    }
+
+    function renderBatchQueue() {
+      const c = $('batchContainer');
+      if (!batchQueue.length) {
+        c.innerHTML = '<div class="text-center text-muted p-4 fs-7">No images loaded in queue.</div>';
+        return;
+      }
+      c.innerHTML = batchQueue.map((item, idx) => `
+        <div class="batch-list-item ${idx === currentBatchIndex ? 'active' : ''}" onclick="loadBatchItem(${idx})">
+          <div class="d-flex align-items-center gap-2 text-truncate">
+            <span class="status-dot ${idx === currentBatchIndex ? 'status-active' : (item.status === 'done' ? 'status-done' : 'status-pending')}"></span>
+            <span class="text-truncate">${item.name}</span>
+          </div>
+          <span class="badge ${item.status === 'done' ? 'bg-success' : 'bg-secondary'} ms-2">${item.status}</span>
+        </div>
+      `).join('');
+    }
+
+    function loadBatchItem(idx) {
+      if (idx < 0 || idx >= batchQueue.length) return;
+      currentBatchIndex = idx;
+      renderBatchQueue();
+      const item = batchQueue[idx];
+      imageName = item.name;
+
       const reader = new FileReader();
       reader.onload = evt => {
         const img = new Image();
         img.onload = () => {
           currentImage = img;
-          imageName = file.name.replace(/\.[^.]+$/, '');
           const oc = document.createElement('canvas');
           oc.width = img.width; oc.height = img.height;
           const octx = oc.getContext('2d', { willReadFrequently: true });
           octx.drawImage(img, 0, 0);
-          imgData = octx.getImageData(0, 0, img.width, img.height);   // cached once per image
+          imgData = octx.getImageData(0, 0, img.width, img.height);
+          
           points = []; intensityProfile = []; detectedPeakIndices = [];
-          lineStart = lineEnd = null; placementStep = 0; hideBanner();
+          spineNodes = []; placementStep = 0; hideBanner();
           resetView(); updateCounts(); renderGraph();
+
+          // Try Loading from DB
+          if (db) {
+            const tx = db.transaction('specimens', 'readonly');
+            const req = tx.objectStore('specimens').get(imageName);
+            req.onsuccess = e => {
+              if (req.result) {
+                const res = req.result;
+                points = res.points || [];
+                spineNodes = res.spineNodes || [];
+                precaudalBoundaryIndex = res.precaudalBoundaryIndex || 10;
+                pixelsPerMm = res.pixelsPerMm || 0;
+                if (spineNodes.length >= 2) processIntensityProfile();
+                updateCounts(); render();
+              }
+            };
+          }
         };
         img.src = evt.target.result;
       };
-      reader.readAsDataURL(file);
-      e.target.value = '';
+      reader.readAsDataURL(item.file);
     }
 
-    /* ---------- Spine placement state machine ---------- */
+    function nextBatchImage() {
+      if (currentBatchIndex < batchQueue.length - 1) loadBatchItem(currentBatchIndex + 1);
+    }
+    function prevBatchImage() {
+      if (currentBatchIndex > 0) loadBatchItem(currentBatchIndex - 1);
+    }
+    function clearBatchQueue() {
+      if (confirm('Clear entire queue?')) { batchQueue = []; currentBatchIndex = -1; renderBatchQueue(); }
+    }
+
+    /* ---------- Spine Pathing & Dynamic Signal Extraction ---------- */
     function startSpinePlacement(e) {
-      if (e) e.stopPropagation();
-      if (!currentImage) return alert('Please upload an X-ray image first.');
-      placementStep = 1; lineStart = null; lineEnd = null; currentHoverPos = null;
-      setTool('draw');
-      showBanner('Step 1: Click HEAD (anterior) end of spine. (ESC to cancel)');
+      if (e) { e.stopPropagation(); if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); }
+      if (!currentImage) return alert('Please upload or load an X-ray image first.');
+      placementStep = 1; spineNodes = []; currentHoverPos = null;
+      setTool('draw'); showBanner('Click along curved spine from HEAD to TAIL. Double-click/Enter = Finish. Backspace = Undo.');
       render();
     }
-    function cancelPlacement() {
-      if (placementStep !== 0) { lineStart = null; lineEnd = null; }
-      placementStep = 0; currentHoverPos = null;
-      hideBanner(); render();
+
+    function finishPlacement() {
+      if (placementStep !== 1) return;
+      if (spineNodes.length < 2) return showBanner('Need at least 2 points to build spine curve.');
+      placementStep = 0; currentHoverPos = null; hideBanner();
+      processIntensityProfile();
+      autoSaveCurrentSpecimen();
     }
 
-    /* ---------- Signal processing ---------- */
-    function paramChanged() {
-      syncLabels();
-      if (lineStart && lineEnd) processIntensityProfile();
-    }
-    function updatePrecaudalSplit(val) {
-      precaudalBoundaryIndex = parseInt(val);
-      reclassifyPoints();
-    }
-
-    // Builds the profile (band-averaged) and detects peaks. Does not touch `points`.
     function computeProfile() {
       intensityProfile = []; detectedPeakIndices = [];
-      if (!lineStart || !lineEnd || !imgData) return false;
-      const dx = lineEnd.x - lineStart.x, dy = lineEnd.y - lineStart.y;
-      const length = Math.hypot(dx, dy);
-      if (length < 10) return false;
+      if (spineNodes.length < 2 || !imgData) return false;
+      
+      sampledSpline = generateSmoothSpline(spineNodes);
+      spineCumLengths = [0];
+      for (let i = 1; i < sampledSpline.length; i++) {
+        spineCumLengths.push(spineCumLengths[i - 1] + Math.hypot(sampledSpline[i].x - sampledSpline[i-1].x, sampledSpline[i].y - sampledSpline[i-1].y));
+      }
+      const totalLen = spineCumLengths[spineCumLengths.length - 1];
+      if (totalLen < 10) return false;
 
       const W = imgData.width, H = imgData.height, d = imgData.data;
-      const band = +$('bandSlider').value, inv = $('invertChk').checked;
-      const nx = -dy / length, ny = dx / length;        // unit normal to the spine line
-      const steps = Math.floor(length), raw = [];
+      const band = +$('bandSlider').value, inv =$('invertChk').checked;
+      const steps = Math.floor(totalLen), raw = [];
 
+      let seg = 0;
       for (let s = 0; s <= steps; s++) {
-        const t = s / steps, cx = lineStart.x + t * dx, cy = lineStart.y + t * dy;
-        let sum = 0, n = 0;
+        const dist = totalLen * s / steps;
+        while (seg < sampledSpline.length - 2 && spineCumLengths[seg + 1] < dist) seg++;
+        const a = sampledSpline[seg], b = sampledSpline[seg + 1] || a;
+        const sl = (spineCumLengths[seg + 1] - spineCumLengths[seg]) || 1;
+        const u = Math.min(1, Math.max(0, (dist - spineCumLengths[seg]) / sl));
+        const cx = a.x + u * (b.x - a.x), cy = a.y + u * (b.y - a.y);
+        const nx = -(b.y - a.y) / sl, ny = (b.x - a.x) / sl;
+
+        let sum = 0, count = 0;
         for (let o = -band; o <= band; o++) {
           const px = Math.round(cx + nx * o), py = Math.round(cy + ny * o);
           if (px >= 0 && px < W && py >= 0 && py < H) {
-            const i = (py * W + px) * 4;
-            sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-            n++;
+            const idx = (py * W + px) * 4;
+            sum += 0.299 * d[idx] + 0.587 * d[idx + 1] + 0.114 * d[idx + 2];
+            count++;
           }
         }
-        if (n) { const l = sum / n; raw.push({ x: cx, y: cy, luminance: inv ? 255 - l : l, t }); }
+        if (count) { const l = sum / count; raw.push({ x: cx, y: cy, luminance: inv ? 255 - l : l, t: dist / totalLen }); }
       }
 
-      const sw = 3;   // moving-average half-window
+      // Moving Average Filter
+      const sw = 3;
       intensityProfile = raw.map((item, idx, arr) => {
         let sum = 0, c = 0;
         for (let w = -sw; w <= sw; w++) if (arr[idx + w]) { sum += arr[idx + w].luminance; c++; }
         return { ...item, smoothLuminance: sum / c };
       });
 
+      // Peak Detection
       const md = +$('sensitivitySlider').value, thr = +$('prominenceSlider').value;
       const v = intensityProfile.map(p => p.smoothLuminance), n = v.length;
       for (let i = 0; i < n; i++) {
-        const lo = Math.max(0, i - md), hi = Math.min(n - 1, i + md);   // window is clamped at the ends
+        const lo = Math.max(0, i - md), hi = Math.min(n - 1, i + md);
         let ok = true, lm = Infinity, rm = Infinity;
         for (let j = lo; j < i; j++) { if (v[j] >= v[i]) { ok = false; break; } lm = Math.min(lm, v[j]); }
         if (!ok) continue;
         for (let j = i + 1; j <= hi; j++) { if (v[j] > v[i]) { ok = false; break; } rm = Math.min(rm, v[j]); }
-        if (!ok) continue;   // plateaus: leftmost sample wins
+        if (!ok) continue;
         const base = (isFinite(lm) && isFinite(rm)) ? Math.max(lm, rm) : Math.min(lm, rm);
         if (isFinite(base) && v[i] - base >= thr) detectedPeakIndices.push(i);
       }
@@ -274,27 +529,59 @@
       reclassifyPoints();
     }
 
-    // Order points head -> tail by projection onto the spine line
-    function sortPoints() {
-      if (!lineStart || !lineEnd) return;
-      const dx = lineEnd.x - lineStart.x, dy = lineEnd.y - lineStart.y, L2 = dx * dx + dy * dy || 1;
-      points.forEach(p => p.t = ((p.x - lineStart.x) * dx + (p.y - lineStart.y) * dy) / L2);
-      points.sort((a, b) => a.t - b.t);
-    }
     function reclassifyPoints() {
-      sortPoints();
       points.forEach((pt, i) => pt.type = (i + 1) <= precaudalBoundaryIndex ? 'precaudal' : 'caudal');
       updateCounts(); renderGraph(); render();
     }
-    function afterEdit() {
-      if (lineStart && lineEnd) reclassifyPoints();
-      else { updateCounts(); render(); }
+
+    function paramChanged() {
+      syncLabels();
+      if (spineNodes.length >= 2) { processIntensityProfile(); autoSaveCurrentSpecimen(); }
     }
 
-    /* ---------- Rendering ---------- */
+    function updatePrecaudalSplit(val) {
+      precaudalBoundaryIndex = parseInt(val);
+      reclassifyPoints();
+      autoSaveCurrentSpecimen();
+    }
+
+    /* ---------- Physical Calibration Tool ---------- */
+    function startScaleCalibration() {
+      placementStep = 2; scaleLine = null;
+      showBanner('Click and Drag a 10mm Reference Line on the X-Ray Scale Bar');
+    }
+
+    /* ---------- Controls & UI Helpers ---------- */
+    function setTool(tool) {
+      activeTool = tool;
+      $('btnPanToggle').className = `floating-btn ${tool === 'pan' ? 'active' : ''}`;
+      wrapper.className = tool === 'pan' ? 'canvas-wrapper mode-pan' : 'canvas-wrapper mode-draw';
+    }
+    function setMode(m) { mode = m; }
+    function showBanner(msg) { const b = $('bannerInstruction'); b.innerText = msg; b.style.display = 'block'; }
+    function hideBanner() { $('bannerInstruction').style.display = 'none'; }
+    function syncLabels() {
+      $('sensitivityVal').innerText =$('sensitivitySlider').value + ' px';
+      $('prominenceVal').innerText =$('prominenceSlider').value;
+      $('bandVal').innerText = '±' +$('bandSlider').value + ' px';
+    }
+    function resizeCanvas() { canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight; render(); }
+    window.addEventListener('resize', () => { resizeCanvas(); renderGraph(); });
+
+    /* ---------- Hardware-Accelerated Image Filters ---------- */
+    function updateImageFilters() {
+      const b = $('brightnessSlider').value, c = $('contrastSlider').value, inv =$('imgInvertChk').checked;
+      $('brightnessVal').innerText = b + '\%';$('contrastVal').innerText = c + '%';
+      canvas.style.filter = `brightness(${b}%) contrast(${c}%) ${inv ? 'invert(100%)' : ''}`;
+    }
+    function resetImageFilters() {
+      $('brightnessSlider').value = 100; $('contrastSlider').value = 100; $('imgInvertChk').checked = false;
+      updateImageFilters();
+    }
+
+    /* ---------- Render Engine ---------- */
     function renderGraph() {
-      graphCanvas.width = graphCanvas.clientWidth;
-      graphCanvas.height = graphCanvas.clientHeight;
+      graphCanvas.width = graphCanvas.clientWidth; graphCanvas.height = graphCanvas.clientHeight;
       gctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
       if (!intensityProfile.length) return;
       const w = graphCanvas.width, h = graphCanvas.height;
@@ -319,22 +606,6 @@
       let p = 0, c = 0;
       return points.map(pt => pt.type === 'precaudal' ? `P${++p}` : `C${++c}`);
     }
-    // k = size of one screen pixel in image pixels (1/scale for the view)
-    function drawPoints(c, k, markFirst) {
-      const labels = labelsFor();
-      points.forEach((pt, i) => {
-        c.beginPath(); c.arc(pt.x, pt.y, 6 * k, 0, Math.PI * 2);
-        c.fillStyle = pt.type === 'precaudal' ? '#ff4d4d' : '#00f2fe';
-        c.strokeStyle = '#fff'; c.lineWidth = 2 * k; c.fill(); c.stroke();
-        if (markFirst && i === 0) {
-          c.strokeStyle = '#00ff66'; c.strokeRect(pt.x - 8 * k, pt.y - 8 * k, 16 * k, 16 * k);
-        }
-        c.font = `bold ${12 * k}px sans-serif`;
-        c.lineWidth = 3 * k; c.strokeStyle = '#000'; c.fillStyle = '#fff';
-        c.strokeText(labels[i], pt.x + 8 * k, pt.y - 8 * k);
-        c.fillText(labels[i], pt.x + 8 * k, pt.y - 8 * k);
-      });
-    }
 
     function render() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -345,19 +616,38 @@
       ctx.drawImage(currentImage, 0, 0);
       const k = 1 / scale;
 
-      if (placementStep === 2 && lineStart) {
-        ctx.beginPath(); ctx.arc(lineStart.x, lineStart.y, 6 * k, 0, Math.PI * 2);
-        ctx.fillStyle = '#00ff66'; ctx.fill();
-        if (currentHoverPos) {
-          ctx.beginPath(); ctx.moveTo(lineStart.x, lineStart.y); ctx.lineTo(currentHoverPos.x, currentHoverPos.y);
-          ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2 * k; ctx.setLineDash([6 * k, 6 * k]); ctx.stroke(); ctx.setLineDash([]);
-        }
+      // Draw Curved Spline
+      if (spineNodes.length) {
+        const fullSpline = generateSmoothSpline(spineNodes);
+        ctx.beginPath(); ctx.moveTo(fullSpline[0].x, fullSpline[0].y);
+        fullSpline.forEach(p => ctx.lineTo(p.x, p.y));
+        if (placementStep === 1 && currentHoverPos) ctx.lineTo(currentHoverPos.x, currentHoverPos.y);
+        ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2 * k; ctx.stroke();
+
+        spineNodes.forEach((p, i) => {
+          ctx.beginPath(); ctx.arc(p.x, p.y, 5 * k, 0, Math.PI * 2);
+          ctx.fillStyle = i ? '#f59e0b' : '#00ff66'; ctx.fill();
+        });
       }
-      if (lineStart && lineEnd) {
-        ctx.beginPath(); ctx.moveTo(lineStart.x, lineStart.y); ctx.lineTo(lineEnd.x, lineEnd.y);
-        ctx.strokeStyle = 'rgba(245,158,11,.4)'; ctx.lineWidth = 2 * k; ctx.stroke();
+
+      // Draw Scale Calibration Line
+      if (scaleLine) {
+        ctx.beginPath(); ctx.moveTo(scaleLine.p1.x, scaleLine.p1.y); ctx.lineTo(scaleLine.p2.x, scaleLine.p2.y);
+        ctx.strokeStyle = '#eab308'; ctx.lineWidth = 3 * k; ctx.stroke();
       }
-      drawPoints(ctx, k, true);
+
+      // Draw Digitized Nodes
+      const labels = labelsFor();
+      points.forEach((pt, i) => {
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, 6 * k, 0, Math.PI * 2);
+        ctx.fillStyle = pt.type === 'precaudal' ? '#ff4d4d' : '#00f2fe';
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * k; ctx.fill(); ctx.stroke();
+
+        ctx.font = `bold ${12 * k}px sans-serif`;
+        ctx.lineWidth = 3 * k; ctx.strokeStyle = '#000'; ctx.fillStyle = '#fff';
+        ctx.strokeText(labels[i], pt.x + 8 * k, pt.y - 8 * k);
+        ctx.fillText(labels[i], pt.x + 8 * k, pt.y - 8 * k);
+      });
     }
 
     function getCanvasCoords(e) {
@@ -369,177 +659,142 @@
       return points.findIndex(pt => Math.hypot(pt.x - c.x, pt.y - c.y) < r);
     };
 
-    /* ---------- Mouse & keyboard ---------- */
+    /* ---------- Mouse & Keyboard Event Handlers ---------- */
     wrapper.addEventListener('mousedown', e => {
       if (e.target.closest(UI_SEL)) return;
       suppressClick = false;
       if (activeTool === 'pan' || e.button === 1) {
-        e.preventDefault();
-        isPanning = true; startPanX = e.clientX - panX; startPanY = e.clientY - panY;
-        return;
+        e.preventDefault(); isPanning = true; startPanX = e.clientX - panX; startPanY = e.clientY - panY; return;
+      }
+      if (placementStep === 2) {
+        const c = getCanvasCoords(e); scaleLine = { p1: c, p2: c }; return;
       }
       if (e.button !== 0 || placementStep !== 0) return;
-      const i = hitPoint(e);
-      if (i !== -1) draggingPoint = i;
+      const i = hitPoint(e); if (i !== -1) draggingPoint = i;
     });
 
     window.addEventListener('mousemove', e => {
       if (isPanning) { panX = e.clientX - startPanX; panY = e.clientY - startPanY; render(); return; }
+      if (placementStep === 2 && scaleLine) { scaleLine.p2 = getCanvasCoords(e); render(); return; }
       if (draggingPoint !== null) {
-        const c = getCanvasCoords(e);
-        points[draggingPoint].x = c.x; points[draggingPoint].y = c.y;
-        render(); return;
+        const c = getCanvasCoords(e); points[draggingPoint].x = c.x; points[draggingPoint].y = c.y; render(); return;
       }
-      if (placementStep === 2) { currentHoverPos = getCanvasCoords(e); render(); }
+      if (placementStep === 1 && spineNodes.length) { currentHoverPos = getCanvasCoords(e); render(); }
     });
 
     window.addEventListener('mouseup', () => {
       isPanning = false;
-      if (draggingPoint !== null) {
-        draggingPoint = null;
-        suppressClick = true;      // the click that follows must not add a point
-        afterEdit();               // re-sort head->tail and relabel
+      if (placementStep === 2 && scaleLine) {
+        const distPx = Math.hypot(scaleLine.p2.x - scaleLine.p1.x, scaleLine.p2.y - scaleLine.p1.y);
+        if (distPx > 5) {
+          pixelsPerMm = distPx / 10.0;
+          $('scaleStatusVal').innerText = `${pixelsPerMm.toFixed(1)} px/mm`;
+          $('scaleStatusVal').className = 'badge bg-success';
+        }
+        placementStep = 0; hideBanner(); autoSaveCurrentSpecimen(); render();
       }
+      if (draggingPoint !== null) { draggingPoint = null; suppressClick = true; autoSaveCurrentSpecimen(); render(); }
     });
 
     wrapper.addEventListener('click', e => {
-      if (e.target.closest(UI_SEL)) return;
-      if (suppressClick) { suppressClick = false; return; }
+      if (e.target.closest(UI_SEL) || suppressClick) { suppressClick = false; return; }
       if (activeTool === 'pan' || !currentImage) return;
       const c = getCanvasCoords(e);
 
       if (placementStep === 1) {
-        lineStart = c; placementStep = 2; currentHoverPos = c;
-        showBanner('Step 2: Click TAIL (posterior) end of spine. (ESC to cancel)');
-        render(); return;
+        spineNodes.push(c); currentHoverPos = c; render(); return;
       }
-      if (placementStep === 2) {
-        if (Math.hypot(c.x - lineStart.x, c.y - lineStart.y) < 10) {   // micro-vector: discard and restart
-          lineStart = null; placementStep = 1; currentHoverPos = null;
-          showBanner('Line too short. Click HEAD end again. (ESC to cancel)');
-          render(); return;
-        }
-        lineEnd = c; placementStep = 0; currentHoverPos = null; hideBanner();
-        processIntensityProfile(); return;
+      if (placementStep === 0) {
+        points.push({ x: c.x, y: c.y, type: mode }); reclassifyPoints(); autoSaveCurrentSpecimen();
       }
-      points.push({ x: c.x, y: c.y, type: mode });
-      afterEdit();
     });
 
-    wrapper.addEventListener('contextmenu', e => {
-      if (e.target.closest(UI_SEL)) return;
-      e.preventDefault();
-      if (!currentImage || placementStep !== 0) return;
-      const i = hitPoint(e);
-      if (i !== -1) { points.splice(i, 1); afterEdit(); }
+    wrapper.addEventListener('dblclick', e => {
+      if (!e.target.closest(UI_SEL) && placementStep === 1) finishPlacement();
     });
 
     window.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { cancelPlacement(); return; }
-      if (e.target.tagName === 'INPUT') return;    // don't hijack keys while using sliders
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 'Escape') { placementStep = 0; hideBanner(); render(); }
+      if (e.key === 'Enter' && placementStep === 1) finishPlacement();
+      if (e.key === 'Backspace' && placementStep === 1) { spineNodes.pop(); render(); }
       if (e.key === '1') setMode('precaudal');
       if (e.key === '2') setMode('caudal');
+      if (e.key.toLowerCase() === 'n') nextBatchImage();
+      if (e.key.toLowerCase() === 'p') prevBatchImage();
     });
 
-    /* ---------- Zoom / view ---------- */
+    /* ---------- View Adjustments ---------- */
     function zoomAt(cx, cy, f) {
       const ns = Math.min(Math.max(0.05, scale * f), 40);
-      panX = cx - (cx - panX) * (ns / scale);
-      panY = cy - (cy - panY) * (ns / scale);
+      panX = cx - (cx - panX) * (ns / scale); panY = cy - (cy - panY) * (ns / scale);
       scale = ns; render();
     }
     wrapper.addEventListener('wheel', e => {
-      e.preventDefault();
-      const r = wrapper.getBoundingClientRect();
+      e.preventDefault(); const r = wrapper.getBoundingClientRect();
       zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.15 : 1 / 1.15);
     }, { passive: false });
     function zoomIn() { zoomAt(wrapper.clientWidth / 2, wrapper.clientHeight / 2, 1.25); }
     function zoomOut() { zoomAt(wrapper.clientWidth / 2, wrapper.clientHeight / 2, 0.8); }
     function resetView() {
-      resizeCanvas();
-      if (!currentImage) return;
+      resizeCanvas(); if (!currentImage) return;
       scale = Math.min(wrapper.clientWidth / currentImage.width, wrapper.clientHeight / currentImage.height) * 0.9;
       panX = (wrapper.clientWidth - currentImage.width * scale) / 2;
       panY = (wrapper.clientHeight - currentImage.height * scale) / 2;
       render();
     }
 
-    /* ---------- Counts, clear ---------- */
+    /* ---------- Counts & UI Updates ---------- */
     function updateCounts() {
       const pre = points.filter(p => p.type === 'precaudal').length, cau = points.length - pre;
-      $('sideCountPre').innerText = pre; $('sideCountCau').innerText = cau;
-      $('dockPreCount').innerText = pre; $('dockCauCount').innerText = cau;
-      $('dockTotalCount').innerText = points.length;
-      const s = $('precaudalSplitSlider');
-      s.max = Math.max(1, points.length);
-      s.value = precaudalBoundaryIndex;
+      $('dockPreCount').innerText = pre; $('dockCauCount').innerText = cau; $('dockTotalCount').innerText = points.length;
+      $('precaudalSplitSlider').max = Math.max(1, points.length);$('precaudalSplitSlider').value = precaudalBoundaryIndex;
       $('precaudalCountVal').innerText = precaudalBoundaryIndex;
     }
-    function clearAll() {
-      if (points.length && !confirm('Clear all points and the spine line?')) return;
-      points = []; intensityProfile = []; detectedPeakIndices = [];
-      lineStart = lineEnd = null; placementStep = 0; hideBanner();
-      updateCounts(); renderGraph(); render();
+
+    /* ---------- Master Batch & CSV Exports ---------- */
+    function downloadFile(content, fileName, mimeType) {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
+      a.download = fileName; a.click();
     }
 
-    /* ---------- Export / save ---------- */
-    function download(url, name) {
-      const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-      if (url.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
     function exportCSV() {
       const labels = labelsFor();
-      let csv = 'LANDMARK_INDEX,LABEL,TYPE,X_PIXEL,Y_PIXEL\n';
-      points.forEach((pt, i) => { csv += `${i + 1},${labels[i]},${pt.type},${pt.x.toFixed(2)},${pt.y.toFixed(2)}\n`; });
-      download(URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), `${imageName}_landmarks.csv`);
+      let csv = 'SPECIMEN_ID,LANDMARK_INDEX,LABEL,TYPE,X_PX,Y_PX,DIST_MM\n';
+      points.forEach((pt, i) => {
+        const mm = pixelsPerMm > 0 ? (pt.t * spineCumLengths[spineCumLengths.length - 1] / pixelsPerMm).toFixed(2) : 'N/A';
+        csv += `${imageName},${i + 1},${labels[i]},${pt.type},${pt.x.toFixed(2)},${pt.y.toFixed(2)},${mm}\n`;
+      });
+      downloadFile(csv, `${imageName}_landmarks.csv`, 'text/csv');
     }
+
     function exportPNG() {
       if (!currentImage) return;
-      const ec = document.createElement('canvas');
-      ec.width = currentImage.width; ec.height = currentImage.height;
-      const ectx = ec.getContext('2d');
-      ectx.drawImage(currentImage, 0, 0);
-      drawPoints(ectx, Math.max(1, currentImage.width / 1000), false);   // includes P/C labels
-      download(ec.toDataURL('image/png'), `${imageName}_annotated.png`);
+      const ec = document.createElement('canvas'); ec.width = currentImage.width; ec.height = currentImage.height;
+      const ectx = ec.getContext('2d'); ectx.drawImage(currentImage, 0, 0);
+      downloadFile(ec.toDataURL('image/png'), `${imageName}_annotated.png`, 'image/png');
     }
-    function saveWorkspace() {
-      if (!currentImage) return;
-      const data = {
-        version: 1,
-        image: { name: imageName, width: currentImage.width, height: currentImage.height },
-        points: points.map(({ x, y, type }) => ({ x, y, type })),
-        lineStart, lineEnd,
-        settings: {
-          minDistance: +$('sensitivitySlider').value, prominence: +$('prominenceSlider').value,
-          band: +$('bandSlider').value, invert: $('invertChk').checked, boundary: precaudalBoundaryIndex
-        }
+
+    function exportMasterBatchCSV() {
+      if (!db) return;
+      const tx = db.transaction('specimens', 'readonly');
+      const req = tx.objectStore('specimens').getAll();
+      req.onsuccess = () => {
+        const allData = req.result;
+        if (!allData || !allData.length) return alert('No analyzed specimen data stored yet in database.');
+        
+        let csv = 'SPECIMEN_ID,TOTAL_VERTEBRAE,PRECAUDAL_COUNT,CAUDAL_COUNT,LANDMARK_INDEX,LABEL,TYPE,X_PX,Y_PX\n';
+        allData.forEach(item => {
+          let p = 0, c = 0;
+          (item.points || []).forEach((pt, i) => {
+            const label = pt.type === 'precaudal' ? `P${++p}` : `C${++c}`;
+            const preCount = item.precaudalBoundaryIndex;
+            const cauCount = (item.points || []).length - preCount;
+            csv += `${item.imageName},${(item.points || []).length},${preCount},${cauCount},${i + 1},${label},${pt.type},${pt.x.toFixed(2)},${pt.y.toFixed(2)}\n`;
+          });
+        });
+        downloadFile(csv, `Master_Fish_Vertebrae_Batch_Dataset.csv`, 'text/csv');
       };
-      download(URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })), `${imageName}_workspace.json`);
-    }
-    function loadWorkspace(e) {
-      const f = e.target.files[0];
-      e.target.value = '';
-      if (!f) return;
-      if (!currentImage) return alert('Upload the matching X-ray image first, then load the workspace.');
-      const r = new FileReader();
-      r.onload = () => {
-        try {
-          const d = JSON.parse(r.result);
-          if (d.image && (d.image.width !== currentImage.width || d.image.height !== currentImage.height) &&
-              !confirm('Image size differs from the saved workspace. Load anyway?')) return;
-          const s = d.settings || {};
-          if (s.minDistance) $('sensitivitySlider').value = s.minDistance;
-          if (s.prominence) $('prominenceSlider').value = s.prominence;
-          if (s.band !== undefined) $('bandSlider').value = s.band;
-          $('invertChk').checked = !!s.invert;
-          precaudalBoundaryIndex = s.boundary || precaudalBoundaryIndex;
-          points = (d.points || []).map(p => ({ x: p.x, y: p.y, type: p.type }));
-          lineStart = d.lineStart || null; lineEnd = d.lineEnd || null;
-          syncLabels(); computeProfile();     // graph only; saved points are kept as-is
-          updateCounts(); renderGraph(); render();
-        } catch (err) { alert('Could not read that workspace file.'); }
-      };
-      r.readAsText(f);
     }
 
     syncLabels();
