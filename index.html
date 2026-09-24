@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VertebraDigitizer Ultra - Next-Gen Fish Spine Analysis</title>
-  <!-- Bootstrap 5 CSS & Icons -->
+  <title>VertebraDigitizer Ultra - AI Spine Analysis Engine</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
@@ -39,7 +38,7 @@
       position: relative;
     }
     .sidebar {
-      width: 390px;
+      width: 400px;
       background: var(--panel-bg);
       border-right: 1px solid var(--border-color);
       display: flex;
@@ -79,7 +78,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-width: 60px;
+      min-width: 65px;
     }
     .counter-badge .val { font-size: 1.3rem; font-weight: 700; line-height: 1; }
     .counter-badge .lbl { font-size: .65rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
@@ -107,11 +106,7 @@
       pointer-events: none;
     }
     
-    .graph-container {
-      position: relative;
-      width: 100%;
-      margin-bottom: 8px;
-    }
+    .graph-container { position: relative; width: 100%; margin-bottom: 8px; }
     #graphCanvas { 
       width: 100%; 
       height: 125px; 
@@ -148,14 +143,14 @@
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-cpu-fill text-info fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">ULTRA</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">AUTO-AI</span></h5>
     </div>
     <div class="d-flex gap-2 align-items-center">
       <label class="btn btn-sm btn-outline-info mb-0">
-        <i class="bi bi-images me-1"></i> Add Batch (Images/Folders)
+        <i class="bi bi-images me-1"></i> Load Radiographs
         <input type="file" id="batchInput" accept="image/*" multiple hidden onchange="handleBatchUpload(event)">
       </label>
-      <button class="btn btn-sm btn-success" onclick="exportMasterBatchCSV()"><i class="bi bi-filetype-csv me-1"></i> Export Master Batch CSV</button>
+      <button class="btn btn-sm btn-success" onclick="exportMasterBatchCSV()"><i class="bi bi-filetype-csv me-1"></i> Export Dataset CSV</button>
     </div>
   </header>
 
@@ -163,83 +158,75 @@
     <!-- Sidebar Controls -->
     <div class="sidebar p-3">
       <div class="d-flex border-bottom border-secondary mb-3">
-        <button id="tabBtnControls" class="tab-btn active" onclick="switchTab('controls')"><i class="bi bi-sliders me-1"></i> AI Detection</button>
+        <button id="tabBtnControls" class="tab-btn active" onclick="switchTab('controls')"><i class="bi bi-cpu me-1"></i> AI Engine Controls</button>
         <button id="tabBtnBatch" class="tab-btn" onclick="switchTab('batch')"><i class="bi bi-collection me-1"></i> Queue (<span id="queueCount">0</span>)</button>
-        <button id="tabBtnDisplay" class="tab-btn" onclick="switchTab('display')"><i class="bi bi-eye me-1"></i> View Filters</button>
+        <button id="tabBtnDisplay" class="tab-btn" onclick="switchTab('display')"><i class="bi bi-eye me-1"></i> Image Adjust</button>
       </div>
 
-      <!-- TAB 1: AI Detection & Signal Filters -->
+      <!-- TAB 1: AI Controls & Auto-Split -->
       <div id="tabSectionControls">
         
-        <!-- Tail Sensitivity Boost Slider -->
-        <div class="card bg-dark border-info p-2 mb-3">
+        <!-- AI Detection Status Card -->
+        <div class="card bg-dark border-primary p-2 mb-3">
           <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fw-bold text-info fs-7"><i class="bi bi-lightning-charge-fill me-1"></i> Tail Sensitivity Boost</span>
-            <span id="tailBoostVal" class="badge bg-info text-dark fw-bold">50%</span>
+            <span class="fw-bold text-info fs-7"><i class="bi bi-robot me-1"></i> Visceral Cavity AI Boundary</span>
+            <span id="aiSplitStatus" class="badge bg-success">Auto Detected</span>
           </div>
-          <input type="range" class="form-range" id="tailBoostSlider" min="0" max="100" value="50" oninput="paramChanged()">
-          <div class="form-text text-muted fs-7 mt-0">Dynamically boosts detection sensitivity toward the caudal tail & urostyle.</div>
+          <div class="form-text text-muted fs-7">
+            AI uses swim bladder radiolucency & background contrast gradients to auto-locate the $C_1$ vertebra.
+          </div>
+          <button class="btn btn-sm btn-outline-info mt-2" onclick="reRunAutoAiDetection()"><i class="bi bi-lightning-charge me-1"></i> Re-Run AI Auto-Analysis</button>
         </div>
 
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-diagram-3 me-1"></i> DoG Signal Filters</h6>
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> Detection Fine-Tuning</h6>
         
-        <div class="mb-2">
-          <label class="form-label small mb-1 d-flex justify-content-between"><span>Base Prominence Cutoff:</span><span id="prominenceVal" class="fw-bold text-info">8</span></label>
-          <input type="range" class="form-range" id="prominenceSlider" min="1" max="50" value="8" oninput="paramChanged()">
+        <div class="card bg-dark border-secondary p-2 mb-3">
+          <div class="mb-2">
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="fs-7 fw-bold text-light">Distal Tail Sensitivity Boost</span>
+              <span id="tailBoostVal" class="badge bg-info text-dark">60%</span>
+            </div>
+            <input type="range" class="form-range" id="tailBoostSlider" min="0" max="100" value="60" oninput="paramChanged()">
+          </div>
+
+          <div class="mb-2">
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="fs-7 text-muted">Centrum Prominence Threshold</span>
+              <span id="prominenceVal" class="fw-bold text-info fs-7">6</span>
+            </div>
+            <input type="range" class="form-range" id="prominenceSlider" min="1" max="40" value="6" oninput="paramChanged()">
+          </div>
+
+          <div class="mb-2">
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="fs-7 text-muted">Band Width Sampling</span>
+              <span id="bandVal" class="fw-bold text-info fs-7">±12 px</span>
+            </div>
+            <input type="range" class="form-range" id="bandSlider" min="2" max="40" value="12" oninput="paramChanged()">
+          </div>
         </div>
 
-        <div class="mb-2">
-          <label class="form-label small mb-1 d-flex justify-content-between"><span>DoG Fine Radius ($\sigma_1$):</span><span id="dogFineVal" class="fw-bold text-info">2 px</span></label>
-          <input type="range" class="form-range" id="dogFineSlider" min="1" max="10" value="2" oninput="paramChanged()">
-        </div>
-        
-        <div class="mb-2">
-          <label class="form-label small mb-1 d-flex justify-content-between"><span>Background Glare Suppression ($\sigma_2$):</span><span id="dogCoarseVal" class="fw-bold text-info">16 px</span></label>
-          <input type="range" class="form-range" id="dogCoarseSlider" min="5" max="50" value="16" oninput="paramChanged()">
-        </div>
-
-        <div class="mb-2">
-          <label class="form-label small mb-1 d-flex justify-content-between"><span>Normal Band Sampling Width:</span><span id="bandVal" class="fw-bold text-info">±12 px</span></label>
-          <input type="range" class="form-range" id="bandSlider" min="2" max="40" value="12" oninput="paramChanged()">
-        </div>
-
-        <div class="form-check form-switch mb-2">
-          <input class="form-check-input" type="checkbox" id="autocorrelationChk" checked onchange="paramChanged()">
-          <label class="form-check-label small" for="autocorrelationChk">Autocorrelation Spacing Prior</label>
-        </div>
-
-        <div class="form-check form-switch mb-3">
-          <input class="form-check-input" type="checkbox" id="snapRidgeChk" checked onchange="paramChanged()">
-          <label class="form-check-label small" for="snapRidgeChk">Snap Curve to Anatomical Spine Ridge</label>
-        </div>
-
-        <hr class="border-secondary my-2">
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-1"><i class="bi bi-graph-up me-1"></i> Signal Curve (Click Graph to Add/Delete Node)</h6>
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-1"><i class="bi bi-graph-up me-1"></i> DoG Density Profile (Click to Edit Nodes)</h6>
         <div class="graph-container">
           <canvas id="graphCanvas"></canvas>
         </div>
-        <div class="form-text text-muted fs-7 mb-2">Yellow line = Precaudal / Caudal boundary. Drag line in graph to adjust split.</div>
+        <div class="form-text text-muted fs-7 mb-2">Red = Precaudal Zone ($P$), Cyan = Caudal Zone ($C$). Drag yellow line to tweak boundary manually.</div>
 
         <hr class="border-secondary my-2">
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-pie-chart-fill me-1"></i> Precaudal vs Caudal Split</h6>
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-pie-chart-fill me-1"></i> Precaudal ($P$) vs Caudal ($C$) Split</h6>
         <div class="mb-3">
-          <label class="form-label small mb-1 d-flex justify-content-between"><span>Precaudal Count ($P_1..P_n$):</span><span id="precaudalCountVal" class="fw-bold text-danger">10</span></label>
-          <input type="range" class="form-range" id="precaudalSplitSlider" min="1" max="50" value="10" oninput="updatePrecaudalSplit(this.value)">
-          <div class="form-text text-muted fs-7">Precaudal vertebrae lack a closed haemal arch. Caudal vertebrae begin at $C_1$.</div>
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="small">First Caudal ($C_1$) Landmark Index:</span>
+            <span id="precaudalCountVal" class="fw-bold text-danger fs-6">10</span>
+          </div>
+          <input type="range" class="form-range" id="precaudalSplitSlider" min="1" max="60" value="10" oninput="updatePrecaudalSplit(this.value)">
         </div>
 
         <hr class="border-secondary my-2">
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-rulers me-1"></i> Physical Calibration</h6>
-        <div class="d-flex gap-2 align-items-center mb-2">
-          <button class="btn btn-sm btn-outline-warning flex-grow-1" onclick="startScaleCalibration()"><i class="bi bi-bounding-box me-1"></i> Draw 10mm Scale Line</button>
-          <span id="scaleStatusVal" class="badge bg-secondary">Uncalibrated</span>
-        </div>
-
-        <hr class="border-secondary my-2">
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-download me-1"></i> Single Specimen Exports</h6>
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-download me-1"></i> Export Options</h6>
         <div class="d-grid gap-2 mb-3">
-          <button class="btn btn-success btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2"></i> Export Landmark CSV</button>
-          <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Export High-Res Annotated PNG</button>
+          <button class="btn btn-success btn-sm text-start" onclick="exportCSV()"><i class="bi bi-filetype-csv me-2"></i> Export Specimen Landmarks CSV</button>
+          <button class="btn btn-outline-light btn-sm text-start" onclick="exportPNG()"><i class="bi bi-file-earmark-image me-2 text-warning"></i> Save Annotated High-Res PNG</button>
         </div>
       </div>
 
@@ -251,13 +238,13 @@
         </div>
         <input type="text" class="form-control form-control-sm mb-2" id="batchSearchInput" placeholder="Filter specimens..." onkeyup="filterBatchQueue()">
         <div id="batchContainer" style="max-height: 450px; overflow-y: auto;">
-          <div class="text-center text-muted p-4 fs-7">No images loaded. Click "Add Batch" in the top bar to load radiograph files.</div>
+          <div class="text-center text-muted p-4 fs-7">No images loaded. Click "Load Radiographs" to start batch analysis.</div>
         </div>
       </div>
 
       <!-- TAB 3: Display Filters -->
       <div id="tabSectionDisplay" style="display:none;">
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders2 me-1"></i> X-Ray Visual Adjustments</h6>
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders2 me-1"></i> Radiograph View Filters</h6>
         <div class="mb-2">
           <label class="form-label small mb-1">Brightness: <span id="brightnessVal">100%</span></label>
           <input type="range" class="form-range" id="brightnessSlider" min="20" max="250" value="100" oninput="updateImageFilters()">
@@ -267,10 +254,10 @@
           <input type="range" class="form-range" id="contrastSlider" min="20" max="250" value="100" oninput="updateImageFilters()">
         </div>
         <div class="mb-2">
-          <label class="form-label small mb-1">Grayscale Inversion</label>
+          <label class="form-label small mb-1">Invert Radiograph Tone</label>
           <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" id="imgInvertChk" onchange="updateImageFilters()">
-            <label class="form-check-label small" for="imgInvertChk">Invert Visual Radiograph</label>
+            <label class="form-check-label small" for="imgInvertChk">Invert Colors</label>
           </div>
         </div>
         <button class="btn btn-sm btn-outline-secondary w-100 mt-2" onclick="resetImageFilters()">Reset View Filters</button>
@@ -292,13 +279,13 @@
 
       <!-- Bottom AI Dock -->
       <div class="ai-dock">
-        <button class="btn btn-sm btn-outline-light" onclick="prevBatchImage()"><i class="bi bi-chevron-left"></i> Prev (P)</button>
-        <div class="counter-badge"><span class="val val-pre" id="dockPreCount">0</span><span class="lbl">Precaudal</span></div>
-        <div class="counter-badge"><span class="val val-cau" id="dockCauCount">0</span><span class="lbl">Caudal</span></div>
-        <div class="counter-badge"><span class="val val-total" id="dockTotalCount">0</span><span class="lbl">Total Nodes</span></div>
-        <button class="btn btn-info text-dark fw-bold" onclick="startSpinePlacement(event)"><i class="bi bi-magic me-1"></i> Draw Curved Spine Spline</button>
+        <button class="btn btn-sm btn-outline-light" onclick="prevBatchImage()"><i class="bi bi-chevron-left"></i> Prev</button>
+        <div class="counter-badge"><span class="val val-pre" id="dockPreCount">0</span><span class="lbl">Precaudal ($P$)</span></div>
+        <div class="counter-badge"><span class="val val-cau" id="dockCauCount">0</span><span class="lbl">Caudal ($C$)</span></div>
+        <div class="counter-badge"><span class="val val-total" id="dockTotalCount">0</span><span class="lbl">Total Centra</span></div>
+        <button class="btn btn-info text-dark fw-bold" onclick="startSpinePlacement(event)"><i class="bi bi-magic me-1"></i> Draw Spine Spline Path</button>
         <button class="btn btn-sm btn-outline-warning" onclick="flipSpineDirection()" title="Reverse Head <-> Tail Orientation"><i class="bi bi-arrow-left-right me-1"></i> Flip Direction</button>
-        <button class="btn btn-sm btn-outline-light" onclick="nextBatchImage()">Next (N) <i class="bi bi-chevron-right"></i></button>
+        <button class="btn btn-sm btn-outline-light" onclick="nextBatchImage()">Next <i class="bi bi-chevron-right"></i></button>
       </div>
     </div>
   </div>
@@ -309,20 +296,17 @@
     const graphCanvas = $('graphCanvas'), gctx = graphCanvas.getContext('2d');
     const UI_SEL = '.ai-dock, .floating-controls';
 
-    // State Variables
+    // Core State Variables
     let currentImage = null, imgData = null, imageName = 'specimen_001';
-    let mode = 'precaudal', activeTool = 'draw';
-    let points = [];                      // Landmarks {x, y, type}
+    let activeTool = 'draw';
+    let points = [];                      // Detected vertebral landmarks {x, y, type, profileIndex}
     let scale = 1, panX = 0, panY = 0, isPanning = false, startPanX = 0, startPanY = 0;
     let draggingPoint = null, suppressClick = false;
-    let placementStep = 0;                // 0: Idle, 1: Spine Spline Draw, 2: Scale Calibration
+    let placementStep = 0;                // 0: Idle, 1: Spine Spline Draw
     let spineNodes = [], sampledSpline = [], spineCumLengths = [], currentHoverPos = null;
     let intensityProfile = [], detectedPeakIndices = [], precaudalBoundaryIndex = 10;
     let isDraggingGraphPin = false;
-
-    // Scale Calibration State
     let pixelsPerMm = 0;
-    let scaleLine = null;
 
     // Batch Queue Manager
     let batchQueue = [];
@@ -331,7 +315,7 @@
     // Persistent Local Storage (IndexedDB)
     let db = null;
     function initDB() {
-      const request = indexedDB.open('VertebraDigitizerDB_Ultra', 1);
+      const request = indexedDB.open('VertebraDigitizerDB_Ultra', 2);
       request.onupgradeneeded = e => {
         db = e.target.result;
         if (!db.objectStoreNames.contains('specimens')) {
@@ -352,8 +336,6 @@
         pixelsPerMm,
         tailBoost: +$('tailBoostSlider').value,
         prominence: +$('prominenceSlider').value,
-        dogFine: +$('dogFineSlider').value,
-        dogCoarse: +$('dogCoarseSlider').value,
         band: +$('bandSlider').value,
         timestamp: new Date().toISOString()
       };
@@ -365,8 +347,8 @@
       }
     }
 
-    /* ---------- Catmull-Rom Curve Spline ---------- */
-    function catmullRomSpline(p0, p1, p2, p3, samples = 20) {
+    /* ---------- Smooth Catmull-Rom Curve Spline ---------- */
+    function catmullRomSpline(p0, p1, p2, p3, samples = 25) {
       const pts = [];
       for (let i = 0; i < samples; i++) {
         const t = i / samples;
@@ -390,7 +372,7 @@
       return fullCurve;
     }
 
-    /* ---------- 1D Gaussian Smooth ---------- */
+    /* ---------- 1D Gaussian Smooth Filter ---------- */
     function gaussianSmooth1D(arr, sigma) {
       if (sigma <= 0) return [...arr];
       const radius = Math.ceil(sigma * 3);
@@ -412,7 +394,7 @@
       return result;
     }
 
-    /* ---------- DoG Profile & Adaptive Tail Sensitivity Engine ---------- */
+    /* ---------- Advanced AI Processing Pipeline ---------- */
     function computeProfile() {
       intensityProfile = []; detectedPeakIndices = [];
       if (spineNodes.length < 2 || !imgData) return false;
@@ -441,21 +423,19 @@
         let cx = a.x + u * (b.x - a.x), cy = a.y + u * (b.y - a.y);
         const nx = -(b.y - a.y) / sl, ny = (b.x - a.x) / sl;
 
-        // Spine Ridge Center-of-Mass Snap
-        if ($('snapRidgeChk').checked) {
-          let comSum = 0, comWeight = 0;
-          for (let o = -8; o <= 8; o++) {
-            const px = Math.round(cx + nx * o), py = Math.round(cy + ny * o);
-            if (px >= 0 && px < W && py >= 0 && py < H) {
-              const idx = (py * W + px) * 4;
-              const lum = 0.299 * d[idx] + 0.587 * d[idx + 1] + 0.114 * d[idx + 2];
-              comSum += o * lum; comWeight += lum;
-            }
+        // Center-of-mass ridge refinement
+        let comSum = 0, comWeight = 0;
+        for (let o = -8; o <= 8; o++) {
+          const px = Math.round(cx + nx * o), py = Math.round(cy + ny * o);
+          if (px >= 0 && px < W && py >= 0 && py < H) {
+            const idx = (py * W + px) * 4;
+            const lum = 0.299 * d[idx] + 0.587 * d[idx + 1] + 0.114 * d[idx + 2];
+            comSum += o * lum; comWeight += lum;
           }
-          if (comWeight > 0) { cx += nx * (comSum / comWeight) * 0.3; cy += ny * (comSum / comWeight) * 0.3; }
         }
+        if (comWeight > 0) { cx += nx * (comSum / comWeight) * 0.3; cy += ny * (comSum / comWeight) * 0.3; }
 
-        // Integrated Perpendicular Cross-section Sampling
+        // Perpendicular Band Integrated Cross-section Sampling
         let sum = 0, count = 0;
         for (let o = -band; o <= band; o++) {
           const px = Math.round(cx + nx * o), py = Math.round(cy + ny * o);
@@ -470,42 +450,28 @@
         intensityProfile.push({ x: cx, y: cy, t: s / steps, rawLum: avgLum });
       }
 
-      // DoG (Difference of Gaussians) Filtering
-      const fineSigma = +$('dogFineSlider').value;
-      const coarseSigma = +$('dogCoarseSlider').value;
-      const fineSmooth = gaussianSmooth1D(rawLuminance, fineSigma);
-      const coarseSmooth = gaussianSmooth1D(rawLuminance, coarseSigma);
+      // DoG (Difference of Gaussians) High-Pass Centrum Detector
+      const fineSmooth = gaussianSmooth1D(rawLuminance, 2.0);
+      const coarseSmooth = gaussianSmooth1D(rawLuminance, 16.0);
+      const backgroundEnvelope = gaussianSmooth1D(rawLuminance, 35.0); // Abdominal cavity background
 
       for (let i = 0; i < fineSmooth.length; i++) {
         intensityProfile[i].dogSignal = fineSmooth[i] - coarseSmooth[i];
+        intensityProfile[i].bgEnv = backgroundEnvelope[i];
       }
 
-      // Autocorrelation Period Estimation
-      let minSpacing = 8;
-      if ($('autocorrelationChk').checked && intensityProfile.length > 50) {
-        const sig = intensityProfile.map(p => p.dogSignal);
-        const maxLag = Math.floor(sig.length / 3);
-        let maxAcVal = -Infinity, bestLag = 12;
-        for (let lag = 6; lag < maxLag; lag++) {
-          let sum = 0;
-          for (let i = 0; i < sig.length - lag; i++) sum += sig[i] * sig[i + lag];
-          if (sum > maxAcVal) { maxAcVal = sum; bestLag = lag; }
-        }
-        minSpacing = Math.max(5, Math.floor(bestLag * 0.6));
-      }
-
-      // Peak Detection with Tail Sensitivity Boost
+      // Adaptive Peak Detection (with Tail Sensitivity Decay)
       const baseProm = +$('prominenceSlider').value;
       const tailBoostPercent = +$('tailBoostSlider').value / 100.0;
       const n = intensityProfile.length;
+      const minSpacing = 6;
 
       for (let i = 1; i < n - 1; i++) {
         const sig = intensityProfile[i].dogSignal;
         if (sig > intensityProfile[i - 1].dogSignal && sig >= intensityProfile[i + 1].dogSignal) {
-          
-          // Adaptive threshold decreases toward tail (t -> 1)
           const t = intensityProfile[i].t;
-          const adaptivePromThreshold = Math.max(1.0, baseProm * (1.0 - tailBoostPercent * 0.75 * t));
+          // Dynamically reduce prominence threshold as we move towards tail distal tip
+          const adaptivePromThreshold = Math.max(1.0, baseProm * (1.0 - tailBoostPercent * 0.8 * t));
 
           let leftMin = sig, rightMin = sig;
           for (let j = Math.max(0, i - minSpacing); j < i; j++) leftMin = Math.min(leftMin, intensityProfile[j].dogSignal);
@@ -523,12 +489,53 @@
       return true;
     }
 
-    function processIntensityProfile() {
+    /* ---------- Visceral Cavity AI Estimator for Precaudal/Caudal Split ---------- */
+    function autoDetectPrecaudalBoundary() {
+      if (!intensityProfile.length || !detectedPeakIndices.length) return;
+
+      // The abdominal/visceral cavity (swim bladder) causes high radiolucency (bright background profile),
+      // which drops off sharply at the posterior edge where the haemal arch / caudal muscular region starts.
+      const n = intensityProfile.length;
+      const gradients = [];
+      
+      for (let i = 10; i < n - 10; i++) {
+        // Gradient of background radiolucency envelope
+        const grad = intensityProfile[i - 5].bgEnv - intensityProfile[i + 5].bgEnv;
+        gradients.push({ index: i, grad });
+      }
+
+      gradients.sort((a, b) => b.grad - a.grad); // Find steepest background attenuation drop
+
+      if (gradients.length) {
+        const bestProfileIdx = gradients[0].index;
+        // Map closest detected centrum landmark index to this boundary
+        let bestPeakRank = 1;
+        detectedPeakIndices.forEach((pIdx, rank) => {
+          if (pIdx <= bestProfileIdx) bestPeakRank = rank + 1;
+        });
+
+        precaudalBoundaryIndex = Math.max(1, Math.min(detectedPeakIndices.length - 1, bestPeakRank));
+      } else {
+        precaudalBoundaryIndex = Math.floor(detectedPeakIndices.length * 0.4);
+      }
+    }
+
+    function processIntensityProfile(runAutoAiSplit = false) {
       if (!computeProfile()) return;
+      if (runAutoAiSplit) autoDetectPrecaudalBoundary();
+      
       const total = detectedPeakIndices.length;
       if (precaudalBoundaryIndex > total) precaudalBoundaryIndex = Math.max(1, Math.floor(total / 2));
+      
       points = detectedPeakIndices.map(i => ({ x: intensityProfile[i].x, y: intensityProfile[i].y, profileIndex: i, type: 'caudal' }));
       reclassifyPoints();
+    }
+
+    function reRunAutoAiDetection() {
+      if (spineNodes.length >= 2) {
+        processIntensityProfile(true);
+        autoSaveCurrentSpecimen();
+      }
     }
 
     function reclassifyPoints() {
@@ -538,12 +545,12 @@
 
     function flipSpineDirection() {
       spineNodes.reverse();
-      if (spineNodes.length >= 2) processIntensityProfile();
+      if (spineNodes.length >= 2) processIntensityProfile(true);
     }
 
     function paramChanged() {
       syncLabels();
-      if (spineNodes.length >= 2) { processIntensityProfile(); autoSaveCurrentSpecimen(); }
+      if (spineNodes.length >= 2) { processIntensityProfile(false); autoSaveCurrentSpecimen(); }
     }
 
     function updatePrecaudalSplit(val) {
@@ -552,32 +559,31 @@
       autoSaveCurrentSpecimen();
     }
 
-    /* ---------- Interactive Graph & Signal Editing ---------- */
+    /* ---------- Interactive DoG Graph Handlers ---------- */
     graphCanvas.addEventListener('mousedown', e => {
       const rect = graphCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const w = graphCanvas.width;
       if (!intensityProfile.length) return;
 
-      // Check if clicking near Precaudal/Caudal boundary pin
       const splitIdx = detectedPeakIndices[precaudalBoundaryIndex - 1] || Math.floor(intensityProfile.length / 2);
       const pinX = (splitIdx / Math.max(1, intensityProfile.length - 1)) * w;
 
-      if (Math.abs(x - pinX) < 10) {
+      if (Math.abs(x - pinX) < 12) {
         isDraggingGraphPin = true;
         return;
       }
 
-      // Add/Remove Peak on Signal Click
+      // Add or remove centrum node on signal click
       const clickIdx = Math.round((x / w) * (intensityProfile.length - 1));
       const existingIdx = points.findIndex(p => Math.abs(p.profileIndex - clickIdx) < 8);
 
       if (existingIdx !== -1) {
-        points.splice(existingIdx, 1); // Delete node
+        points.splice(existingIdx, 1);
       } else {
         const item = intensityProfile[clickIdx];
         points.push({ x: item.x, y: item.y, profileIndex: clickIdx, type: 'caudal' });
-        points.sort((a, b) => a.profileIndex - b.profileIndex); // Maintain sequential order
+        points.sort((a, b) => a.profileIndex - b.profileIndex);
       }
       reclassifyPoints();
       autoSaveCurrentSpecimen();
@@ -589,7 +595,6 @@
       const x = e.clientX - rect.left;
       const clickIdx = Math.round((x / graphCanvas.width) * (intensityProfile.length - 1));
 
-      // Find closest detected peak index to mouse position
       let bestSplit = 1;
       points.forEach((pt, i) => {
         if (pt.profileIndex <= clickIdx) bestSplit = i + 1;
@@ -600,7 +605,7 @@
 
     window.addEventListener('mouseup', () => { isDraggingGraphPin = false; });
 
-    /* ---------- Interactive Node Editing ---------- */
+    /* ---------- Node Editing Controls ---------- */
     function deleteNodeAt(index) {
       if (index >= 0 && index < points.length) {
         points.splice(index, 1);
@@ -620,12 +625,13 @@
       autoSaveCurrentSpecimen();
     }
 
-    /* ---------- Scale Calibration & View Controls ---------- */
-    function startScaleCalibration() {
-      placementStep = 2; scaleLine = null;
-      showBanner('Click and Drag a 10mm Reference Line on the X-Ray Scale Bar');
+    function setFirstCaudalAt(index) {
+      precaudalBoundaryIndex = Math.max(1, index);
+      reclassifyPoints();
+      autoSaveCurrentSpecimen();
     }
 
+    /* ---------- Batch & View Handlers ---------- */
     function switchTab(tab) {
       $('tabSectionControls').style.display = tab === 'controls' ? 'block' : 'none';
       $('tabSectionBatch').style.display = tab === 'batch' ? 'block' : 'none';
@@ -650,17 +656,15 @@
 
     function filterBatchQueue() {
       const q = $('batchSearchInput').value.toLowerCase();
-      const items = document.querySelectorAll('.batch-list-item');
-      items.forEach(el => {
-        const text = el.innerText.toLowerCase();
-        el.style.display = text.includes(q) ? 'flex' : 'none';
+      document.querySelectorAll('.batch-list-item').forEach(el => {
+        el.style.display = el.innerText.toLowerCase().includes(q) ? 'flex' : 'none';
       });
     }
 
     function renderBatchQueue() {
       const c = $('batchContainer');
       if (!batchQueue.length) {
-        c.innerHTML = '<div class="text-center text-muted p-4 fs-7">No images loaded in queue.</div>';
+        c.innerHTML = '<div class="text-center text-muted p-4 fs-7">No images in queue.</div>';
         return;
       }
       c.innerHTML = batchQueue.map((item, idx) => `
@@ -705,8 +709,7 @@
                 points = res.points || [];
                 spineNodes = res.spineNodes || [];
                 precaudalBoundaryIndex = res.precaudalBoundaryIndex || 10;
-                pixelsPerMm = res.pixelsPerMm || 0;
-                if (spineNodes.length >= 2) processIntensityProfile();
+                if (spineNodes.length >= 2) processIntensityProfile(false);
                 updateCounts(); render();
               }
             };
@@ -725,15 +728,15 @@
       if (e) { e.stopPropagation(); if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); }
       if (!currentImage) return alert('Please upload an X-ray radiograph first.');
       placementStep = 1; spineNodes = []; currentHoverPos = null;
-      setTool('draw'); showBanner('Click along curved spine from HEAD to TAIL. Double-click/Enter = Finish. Backspace = Undo.');
+      setTool('draw'); showBanner('Click along spine curve from HEAD to TAIL. Double-click or Enter to finish.');
       render();
     }
 
     function finishPlacement() {
       if (placementStep !== 1) return;
-      if (spineNodes.length < 2) return showBanner('Need at least 2 points to build spine curve.');
+      if (spineNodes.length < 2) return showBanner('Need at least 2 points for spine spline.');
       placementStep = 0; currentHoverPos = null; hideBanner();
-      processIntensityProfile();
+      processIntensityProfile(true);
       autoSaveCurrentSpecimen();
     }
 
@@ -747,8 +750,6 @@
     function syncLabels() {
       $('tailBoostVal').innerText =$('tailBoostSlider').value + '%';
       $('prominenceVal').innerText =$('prominenceSlider').value;
-      $('dogFineVal').innerText =$('dogFineSlider').value + ' px';
-      $('dogCoarseVal').innerText =$('dogCoarseSlider').value + ' px';
       $('bandVal').innerText = '±' +$('bandSlider').value + ' px';
     }
     function resizeCanvas() { canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight; render(); }
@@ -764,7 +765,7 @@
       updateImageFilters();
     }
 
-    /* ---------- Rendering Pipeline ---------- */
+    /* ---------- Graphical Visual Rendering ---------- */
     function renderGraph() {
       graphCanvas.width = graphCanvas.clientWidth; graphCanvas.height = graphCanvas.clientHeight;
       gctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
@@ -776,21 +777,27 @@
       const gx = i => (i / Math.max(1, intensityProfile.length - 1)) * w;
       const gy = p => h - (((p.dogSignal || 0) - minS) / range) * (h - 20) - 10;
 
-      // DoG Signal Baseline Curve
-      gctx.beginPath(); gctx.strokeStyle = '#38bdf8'; gctx.lineWidth = 1.5;
-      intensityProfile.forEach((p, i) => i ? gctx.lineTo(gx(i), gy(p)) : gctx.moveTo(gx(i), gy(p)));
-      gctx.stroke();
-
-      // Precaudal / Caudal Boundary Pin Line
+      // Color Precaudal Zone (Red) and Caudal Zone (Cyan)
       const splitPoint = points[precaudalBoundaryIndex - 1];
       const pinIndex = splitPoint ? splitPoint.profileIndex : Math.floor(intensityProfile.length / 2);
       const pinX = gx(pinIndex);
 
+      gctx.fillStyle = 'rgba(255, 77, 77, 0.12)';
+      gctx.fillRect(0, 0, pinX, h);
+      gctx.fillStyle = 'rgba(0, 242, 254, 0.12)';
+      gctx.fillRect(pinX, 0, w - pinX, h);
+
+      // DoG Density Signal Curve
+      gctx.beginPath(); gctx.strokeStyle = '#38bdf8'; gctx.lineWidth = 1.5;
+      intensityProfile.forEach((p, i) => i ? gctx.lineTo(gx(i), gy(p)) : gctx.moveTo(gx(i), gy(p)));
+      gctx.stroke();
+
+      // Precaudal/Caudal Split Line
       gctx.beginPath(); gctx.strokeStyle = '#eab308'; gctx.lineWidth = 2; gctx.setLineDash([3, 3]);
       gctx.moveTo(pinX, 0); gctx.lineTo(pinX, h); gctx.stroke(); gctx.setLineDash([]);
       gctx.fillStyle = '#eab308'; gctx.fillRect(pinX - 4, 0, 8, 8);
 
-      // Vertebral Node Peak Dots
+      // Detected Centrum Peaks
       points.forEach((pt, rank) => {
         if (pt.profileIndex !== undefined && intensityProfile[pt.profileIndex]) {
           gctx.beginPath(); gctx.arc(gx(pt.profileIndex), gy(intensityProfile[pt.profileIndex]), 4, 0, Math.PI * 2);
@@ -814,7 +821,7 @@
       ctx.drawImage(currentImage, 0, 0);
       const k = 1 / scale;
 
-      // Spine Spline Path
+      // Draw Curved Spine Path
       if (spineNodes.length) {
         const fullSpline = generateSmoothSpline(spineNodes);
         ctx.beginPath(); ctx.moveTo(fullSpline[0].x, fullSpline[0].y);
@@ -828,22 +835,18 @@
         });
       }
 
-      // Scale Calibration Line
-      if (scaleLine) {
-        ctx.beginPath(); ctx.moveTo(scaleLine.p1.x, scaleLine.p1.y); ctx.lineTo(scaleLine.p2.x, scaleLine.p2.y);
-        ctx.strokeStyle = '#eab308'; ctx.lineWidth = 3 * k; ctx.stroke();
-      }
-
-      // Vertebral Landmarks & Non-Overlapping Staggered Pill Labels
+      // Draw Vertebral Landmarks and Labels
       const labels = labelsFor();
       points.forEach((pt, i) => {
+        const isBoundaryC1 = (i + 1) === precaudalBoundaryIndex + 1;
         const color = pt.type === 'precaudal' ? '#ff4d4d' : '#00f2fe';
         
-        ctx.beginPath(); ctx.arc(pt.x, pt.y, 5 * k, 0, Math.PI * 2);
-        ctx.fillStyle = color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * k;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, (isBoundaryC1 ? 7 : 5) * k, 0, Math.PI * 2);
+        ctx.fillStyle = color; ctx.strokeStyle = isBoundaryC1 ? '#eab308' : '#fff';
+        ctx.lineWidth = (isBoundaryC1 ? 3 : 1.5) * k;
         ctx.fill(); ctx.stroke();
 
-        // Staggered Offset Calculations
+        // Staggered Non-Overlapping Tag Labels
         const side = (i % 2 === 0) ? 1 : -1;
         const offsetDist = (18 + (i % 3) * 12) * k;
         const lx = pt.x + side * offsetDist;
@@ -858,7 +861,7 @@
         const px = lx - (side < 0 ? textWidth + 6 * k : -2 * k);
         const py = ly - 7 * k;
 
-        ctx.fillStyle = 'rgba(10, 15, 25, 0.88)';
+        ctx.fillStyle = 'rgba(10, 15, 25, 0.9)';
         ctx.strokeStyle = color; ctx.lineWidth = 1 * k;
         ctx.beginPath();
         ctx.roundRect(px - 3 * k, py - 3 * k, textWidth + 6 * k, 12 * k, 3 * k);
@@ -878,21 +881,23 @@
       return points.findIndex(pt => Math.hypot(pt.x - c.x, pt.y - c.y) < r);
     };
 
-    /* ---------- Mouse & Touch Handlers ---------- */
+    /* ---------- Mouse & User Interactions ---------- */
     wrapper.addEventListener('mousedown', e => {
       if (e.target.closest(UI_SEL)) return;
       suppressClick = false;
       if (activeTool === 'pan' || e.button === 1) {
         e.preventDefault(); isPanning = true; startPanX = e.clientX - panX; startPanY = e.clientY - panY; return;
       }
-      if (placementStep === 2) { const c = getCanvasCoords(e); scaleLine = { p1: c, p2: c }; return; }
       if (e.button !== 0 || placementStep !== 0) return;
-      const i = hitPoint(e); if (i !== -1) draggingPoint = i;
+      const i = hitPoint(e);
+      if (i !== -1) {
+        if (e.shiftKey) { setFirstCaudalAt(i); return; } // Shift+Click sets landmark as C1
+        draggingPoint = i;
+      }
     });
 
     window.addEventListener('mousemove', e => {
       if (isPanning) { panX = e.clientX - startPanX; panY = e.clientY - startPanY; render(); return; }
-      if (placementStep === 2 && scaleLine) { scaleLine.p2 = getCanvasCoords(e); render(); return; }
       if (draggingPoint !== null) {
         const c = getCanvasCoords(e); points[draggingPoint].x = c.x; points[draggingPoint].y = c.y; render(); return;
       }
@@ -901,15 +906,6 @@
 
     window.addEventListener('mouseup', () => {
       isPanning = false;
-      if (placementStep === 2 && scaleLine) {
-        const distPx = Math.hypot(scaleLine.p2.x - scaleLine.p1.x, scaleLine.p2.y - scaleLine.p1.y);
-        if (distPx > 5) {
-          pixelsPerMm = distPx / 10.0;
-          $('scaleStatusVal').innerText = `${pixelsPerMm.toFixed(1)} px/mm`;
-          $('scaleStatusVal').className = 'badge bg-success';
-        }
-        placementStep = 0; hideBanner(); autoSaveCurrentSpecimen(); render();
-      }
       if (draggingPoint !== null) { draggingPoint = null; suppressClick = true; autoSaveCurrentSpecimen(); render(); }
     });
 
@@ -943,7 +939,7 @@
       if (e.key.toLowerCase() === 'p') prevBatchImage();
     });
 
-    /* ---------- Viewport Zoom / Pan ---------- */
+    /* ---------- Zoom / Pan Controls ---------- */
     function zoomAt(cx, cy, f) {
       const ns = Math.min(Math.max(0.05, scale * f), 40);
       panX = cx - (cx - panX) * (ns / scale); panY = cy - (cy - panY) * (ns / scale);
@@ -970,7 +966,7 @@
       $('precaudalCountVal').innerText = precaudalBoundaryIndex;
     }
 
-    /* ---------- Master Batch & CSV Exports ---------- */
+    /* ---------- Dataset Exports ---------- */
     function downloadFile(content, fileName, mimeType) {
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
       a.download = fileName; a.click();
@@ -978,10 +974,9 @@
 
     function exportCSV() {
       const labels = labelsFor();
-      let csv = 'SPECIMEN_ID,LANDMARK_INDEX,LABEL,TYPE,X_PX,Y_PX,DIST_MM\n';
+      let csv = 'SPECIMEN_ID,LANDMARK_INDEX,LABEL,TYPE,X_PX,Y_PX\n';
       points.forEach((pt, i) => {
-        const mm = pixelsPerMm > 0 ? (pt.x / pixelsPerMm).toFixed(2) : 'N/A';
-        csv += `${imageName},${i + 1},${labels[i]},${pt.type},${pt.x.toFixed(2)},${pt.y.toFixed(2)},${mm}\n`;
+        csv += `${imageName},${i + 1},${labels[i]},${pt.type},${pt.x.toFixed(2)},${pt.y.toFixed(2)}\n`;
       });
       downloadFile(csv, `${imageName}_landmarks.csv`, 'text/csv');
     }
@@ -999,7 +994,7 @@
       const req = tx.objectStore('specimens').getAll();
       req.onsuccess = () => {
         const allData = req.result;
-        if (!allData || !allData.length) return alert('No analyzed specimen data stored yet in database.');
+        if (!allData || !allData.length) return alert('No analyzed specimen data in local database.');
         
         let csv = 'SPECIMEN_ID,TOTAL_VERTEBRAE,PRECAUDAL_COUNT,CAUDAL_COUNT,LANDMARK_INDEX,LABEL,TYPE,X_PX,Y_PX\n';
         allData.forEach(item => {
@@ -1011,7 +1006,7 @@
             csv += `${item.imageName},${(item.points || []).length},${preCount},${cauCount},${i + 1},${label},${pt.type},${pt.x.toFixed(2)},${pt.y.toFixed(2)}\n`;
           });
         });
-        downloadFile(csv, `Master_Fish_Vertebrae_Batch_Dataset.csv`, 'text/csv');
+        downloadFile(csv, `Master_Fish_Vertebrae_Dataset.csv`, 'text/csv');
       };
     }
 
