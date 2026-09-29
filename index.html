@@ -184,10 +184,9 @@
           </div>
           <canvas id="graphCanvas" width="390" height="120" style="width:100%; height:120px; background:#020305; border-radius:4px;"></canvas>
           <div class="d-flex justify-content-between text-muted fs-7 mt-1">
-            <span><span style="color:#94a3b8">■</span> Raw</span>
+            <span><span style="color:#64748b">■</span> Raw</span>
             <span><span style="color:#00f2fe">■</span> Smooth</span>
             <span><span style="color:#eab308">■</span> Boundaries</span>
-            <span><span style="color:#10b981">■</span> Centers</span>
           </div>
         </div>
 
@@ -196,7 +195,7 @@
         <div class="card bg-dark border-secondary p-3 mb-3">
           <div class="mb-2">
             <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="fs-7 fw-bold" style="color:var(--w-color)">Weberian Count ($W$)</span>
+              <span class="fs-7 fw-bold" style="color:var(--w-color)">Weberian Count (W)</span>
               <span id="wCountDisplay" class="badge bg-light text-dark fw-bold">4</span>
             </div>
             <input type="range" class="form-range" id="wSlider" min="0" max="6" value="4" oninput="updateRegionSplits()">
@@ -204,14 +203,14 @@
 
           <div class="mb-2">
             <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="fs-7 text-danger fw-bold">First Caudal Index ($C_1$)</span>
+              <span class="fs-7 text-danger fw-bold">First Caudal Index (C₁)</span>
               <span id="c1IndexDisplay" class="badge bg-warning text-dark fw-bold">13</span>
             </div>
             <input type="range" class="form-range" id="c1Slider" min="1" max="70" value="13" oninput="updateRegionSplits()">
           </div>
 
           <div class="d-flex justify-content-between fs-7 pt-2 border-top border-secondary text-center">
-            <div><span class="text-purple">W:</span> <strong id="cntW">4</strong></div>
+            <div><span style="color:var(--w-color)">W:</span> <strong id="cntW">4</strong></div>
             <div><span class="text-danger">Pre:</span> <strong id="cntPre">12</strong></div>
             <div><span class="text-info">Cau:</span> <strong id="cntCau">14</strong></div>
             <div><span class="text-warning">Fused:</span> <strong id="cntFused">0</strong></div>
@@ -225,7 +224,7 @@
             <li><strong>Click empty space:</strong> Add new vertebra center</li>
             <li><strong>Drag point:</strong> Move landmark</li>
             <li><strong>Right-click point:</strong> Delete vertebra</li>
-            <li><strong>Shift + Click point:</strong> Set as First Caudal ($C_1$)</li>
+            <li><strong>Shift + Click point:</strong> Set as First Caudal (C₁)</li>
             <li><strong>Ctrl + Z:</strong> Undo action</li>
           </ul>
         </div>
@@ -241,7 +240,6 @@
             <option value="histeq">Histogram Equalized</option>
             <option value="clahe">CLAHE (Contrast Limited Adaptive)</option>
             <option value="inverted">Inverted (Negative View)</option>
-            <option value="highpass">High-Pass Filter (Edge Sharpen)</option>
           </select>
         </div>
         <div class="mb-3">
@@ -276,15 +274,15 @@
       <div id="tabSectionGuide" style="display:none;">
         <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-journal-medical me-1"></i> Taxonomic Nomenclature</h6>
         <div class="card bg-dark border-secondary p-2 mb-2 fs-7">
-          <div class="fw-bold text-purple" style="color:var(--w-color)">Weberian Apparatus ($W_1 - W_4$)</div>
+          <div class="fw-bold" style="color:var(--w-color)">Weberian Apparatus (W₁ - W₄)</div>
           <div class="text-muted">Modified anterior vertebrae connecting swim bladder.</div>
         </div>
         <div class="card bg-dark border-secondary p-2 mb-2 fs-7">
-          <div class="fw-bold text-danger">Precaudal Vertebrae ($P_1, P_2 \dots$)</div>
+          <div class="fw-bold text-danger">Precaudal Vertebrae (P₁, P₂ ...)</div>
           <div class="text-muted">Abdominal vertebrae bearing ribs.</div>
         </div>
         <div class="card bg-dark border-secondary p-2 fs-7">
-          <div class="fw-bold text-info">Caudal Vertebrae ($C_1, C_2 \dots$)</div>
+          <div class="fw-bold text-info">Caudal Vertebrae (C₁, C₂ ...)</div>
           <div class="text-muted">Vertebrae possessing a closed ventral haemal arch.</div>
         </div>
       </div>
@@ -309,7 +307,7 @@
       <div class="ai-dock">
         <div class="counter-badge">
           <span class="val val-w" id="dockWCount">4</span>
-          <span class="lbl">Weberian ($W$)</span>
+          <span class="lbl">Weberian (W)</span>
         </div>
         <div class="counter-badge">
           <span class="val val-pre" id="dockPreCount">12</span>
@@ -344,19 +342,18 @@
     let currentImage = null, imageName = 'specimen_001';
     let rawImageBitmap = null;
     let activeTool = 'draw';
-    let points = []; // {x, y, region, fused, boundaries: {a, b}}
+    let points = []; 
     let numWeberian = 4;
     let firstCaudalIndex = 13;
     let scale = 1, panX = 0, panY = 0, isPanning = false, startPanX = 0, startPanY = 0;
     let draggingPoint = null, selectedPointIdx = null, suppressClick = false;
-    let placementStep = 0; // 0 = normal, 1 = spline placement, 2 = calibration
+    let placementStep = 0; 
     let spineNodes = [], currentHoverPos = null;
-    let calibStart = null, pixelsPerMM = 10.0; // 10 px = 1 mm default scale
+    let calibStart = null, pixelsPerMM = 10.0;
 
     let undoStack = [];
     const MAX_HISTORY = 50;
-
-    let lastProfileData = null; // Stores raw/smooth/boundaries/centers for graph inspector
+    let lastProfileData = null;
 
     function saveState() {
       undoStack.push({
@@ -394,7 +391,6 @@
           procCanvas.width = img.width; procCanvas.height = img.height;
           procCtx.drawImage(img, 0, 0);
           resetView();
-          // Initialize default spine nodes across center
           spineNodes = [
             { x: img.width * 0.15, y: img.height * 0.5 },
             { x: img.width * 0.45, y: img.height * 0.5 },
@@ -429,7 +425,6 @@
       return fullCurve;
     }
 
-    /* ---------- STEP 2-6: STRIP SAMPLING & INTENSITY PROFILE DETECTION ---------- */
     function runBoundaryDetectionPipeline() {
       if (!currentImage || spineNodes.length < 2) return alert('Please draw a spine path first.');
       saveState();
@@ -445,27 +440,19 @@
 
       const imgData = procCtx.getImageData(0, 0, imgW, imgH);
       const data = imgData.data;
-      const stripWidth = 40; // -20 to +20 pixels normal to spine
+      const stripWidth = 40;
 
-      let cumulativeDist = [0];
       let spineProfile = [];
 
       for (let i = 0; i < fullCurve.length; i++) {
-        if (i > 0) {
-          const d = Math.hypot(fullCurve[i].x - fullCurve[i-1].x, fullCurve[i].y - fullCurve[i-1].y);
-          cumulativeDist.push(cumulativeDist[i-1] + d);
-        }
-
-        // Calculate normal angle
         let dx = 0, dy = 0;
         if (i === 0) { dx = fullCurve[1].x - fullCurve[0].x; dy = fullCurve[1].y - fullCurve[0].y; }
         else if (i === fullCurve.length - 1) { dx = fullCurve[i].x - fullCurve[i-1].x; dy = fullCurve[i].y - fullCurve[i-1].y; }
         else { dx = fullCurve[i+1].x - fullCurve[i-1].x; dy = fullCurve[i+1].y - fullCurve[i-1].y; }
         
         const len = Math.hypot(dx, dy) || 1;
-        const nx = -dy / len, ny = dx / len; // Normal vector
+        const nx = -dy / len, ny = dx / len;
 
-        // Sample along perpendicular strip
         let stripSum = 0, sampleCount = 0;
         for (let w = -stripWidth/2; w <= stripWidth/2; w += 2) {
           const sx = Math.round(fullCurve[i].x + nx * w);
@@ -480,7 +467,6 @@
         spineProfile.push(sampleCount > 0 ? stripSum / sampleCount : 0);
       }
 
-      // Step 4: Moving Average Smoothing (Window = 9)
       const windowSize = 9;
       let smoothed = [];
       for (let i = 0; i < spineProfile.length; i++) {
@@ -494,26 +480,18 @@
         smoothed.push(sum / count);
       }
 
-      // Step 5: First & Second Derivatives
       let firstDeriv = new Array(smoothed.length).fill(0);
-      let secondDeriv = new Array(smoothed.length).fill(0);
       for (let i = 1; i < smoothed.length - 1; i++) {
         firstDeriv[i] = smoothed[i+1] - smoothed[i-1];
       }
-      for (let i = 1; i < firstDeriv.length - 1; i++) {
-        secondDeriv[i] = firstDeriv[i+1] - firstDeriv[i-1];
-      }
 
-      // Step 6: Detect vertebral boundaries via zero-crossings and local peaks
       let rawBoundaries = [];
       for (let i = 1; i < firstDeriv.length - 1; i++) {
-        // Zero crossing with positive slope or prominent peaks in smoothed intensity
         if ((firstDeriv[i] <= 0 && firstDeriv[i-1] > 0) || smoothed[i] > 180) {
           rawBoundaries.push(i);
         }
       }
 
-      // Distance constraints filtering (ensuring ~15-30px min separation between vertebral centers)
       let filteredBoundaries = [];
       let minSpacing = 14;
       rawBoundaries.forEach(bIdx => {
@@ -522,7 +500,6 @@
         }
       });
 
-      // Step 7: Compute vertebral centers between adjacent boundaries
       points = [];
       for (let i = 0; i < filteredBoundaries.length - 1; i++) {
         const bAIdx = filteredBoundaries[i];
@@ -538,7 +515,6 @@
         });
       }
 
-      // Fallback if automatic segmentation yields too few nodes
       if (points.length < 10) {
         points = [];
         const fallbackCount = 28;
@@ -565,7 +541,6 @@
 
       const maxVal = Math.max(...raw, 255);
 
-      // Draw raw signal
       graphCtx.beginPath();
       raw.forEach((val, i) => {
         const x = (i / (raw.length - 1)) * w;
@@ -574,7 +549,6 @@
       });
       graphCtx.strokeStyle = '#64748b'; graphCtx.lineWidth = 1; graphCtx.stroke();
 
-      // Draw smoothed signal
       graphCtx.beginPath();
       smooth.forEach((val, i) => {
         const x = (i / (smooth.length - 1)) * w;
@@ -583,7 +557,6 @@
       });
       graphCtx.strokeStyle = '#00f2fe'; graphCtx.lineWidth = 1.5; graphCtx.stroke();
 
-      // Draw boundaries
       lastProfileData.boundaries.forEach(bIdx => {
         const x = (bIdx / raw.length) * w;
         graphCtx.beginPath(); graphCtx.moveTo(x, 0); graphCtx.lineTo(x, h);
@@ -632,9 +605,8 @@
 
       $('c1Slider').max = points.length;
       $('c1Slider').value = firstCaudalIndex;
-      $('c1IndexDisplay').innerText = `C1 = #${firstCaudalIndex}`;
+      $('c1IndexDisplay').innerText = `C₁ = #${firstCaudalIndex}`;
 
-      // Calculate real units
       let spineLenPx = 0;
       for (let i = 1; i < points.length; i++) {
         spineLenPx += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
@@ -665,7 +637,6 @@
 
       const k = 1 / scale;
 
-      // Draw spline path if in placement mode
       if (placementStep === 1 && spineNodes.length) {
         const fullSpline = generateSmoothSpline(spineNodes);
         ctx.beginPath();
@@ -681,10 +652,8 @@
       }
 
       const labels = getFormattedLabels();
-      const total = points.length;
 
       points.forEach((pt, i) => {
-        const n = i + 1;
         const isSelected = (selectedPointIdx === i);
 
         let color = '#00f2fe';
@@ -699,7 +668,6 @@
         ctx.lineWidth = 2 * k;
         ctx.fill(); ctx.stroke();
 
-        // Render Publication Labeling (W1, P1, C1...)
         const tagText = labels[i];
         const lx = pt.x + 20 * k;
         const ly = pt.y - 12 * k;
@@ -718,7 +686,6 @@
         ctx.fillText(tagText, lx, ly + 1.5 * k);
       });
 
-      // Render Calibration Line
       if (placementStep === 2 && calibStart && currentHoverPos) {
         ctx.beginPath();
         ctx.moveTo(calibStart.x, calibStart.y);
@@ -811,7 +778,6 @@
       const c = getCanvasCoords(e);
       if (hitPoint(e) === -1) {
         saveState();
-        // Insert new point at nearest position
         points.push({ x: c.x, y: c.y, fused: false });
         reclassifyRegions();
       }
@@ -859,7 +825,6 @@
       setTool('draw');
     }
 
-    /* ---------- Preprocessing Filters ---------- */
     function applyImagePreprocessing() {
       if (!rawImageBitmap) return;
       const mode = $('filterModeSelect').value;
@@ -883,7 +848,6 @@
           data[i+2] = 255 - data[i+2];
         }
       } else if (mode === 'histeq' || mode === 'clahe') {
-        // Simple histogram equalization simulation
         let hist = new Array(256).fill(0);
         for (let i = 0; i < data.length; i += 4) {
           let lum = Math.round(data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
@@ -922,7 +886,6 @@
       updateImageFilters(); applyImagePreprocessing();
     }
 
-    /* ---------- Workspace Import/Export & CSV ---------- */
     function exportWorkspace() {
       const ws = {
         imageName, spineNodes, points, numWeberian, firstCaudalIndex, scale, panX, panY, pixelsPerMM
