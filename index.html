@@ -1,42 +1,1016 @@
-function extractIntensityProfile(curve) {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VertebraDigitizer Ultra v2 - Research-Grade Ichthyological Radiograph Analysis</title>
+  <!-- Bootstrap 5 & Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --w-color: #a855f7;      /* Weberian Apparatus */
+      --pre-color: #ff4d4d;    /* Precaudal */
+      --cau-color: #00f2fe;    /* Caudal */
+      --fused-color: #eab308;  /* Fused */
+      --u-color: #94a3b8;      /* Urostyle */
+      --bg-dark: #07090e;
+      --panel-bg: rgba(13, 17, 25, 0.96);
+      --border-color: rgba(255, 255, 255, 0.12);
+    }
+    body {
+      background: var(--bg-dark);
+      color: #e2e8f0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      margin: 0;
+    }
+    .app-header {
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+    .main-container {
+      display: flex;
+      height: calc(100vh - 56px);
+      position: relative;
+    }
+    .sidebar {
+      width: 440px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .canvas-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #020305;
+      user-select: none;
+    }
+    .canvas-wrapper.mode-draw { cursor: crosshair; }
+    .canvas-wrapper.mode-pan { cursor: grab; }
+    .canvas-wrapper.mode-pan:active { cursor: grabbing; }
+    #imageCanvas { position: absolute; top: 0; left: 0; }
+    
+    .ai-dock {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 12px 40px rgba(0,0,0,.85);
+      border-radius: 16px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 20;
+    }
+    .counter-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 65px;
+    }
+    .counter-badge .val { font-size: 1.3rem; font-weight: 700; line-height: 1; }
+    .counter-badge .lbl { font-size: .65rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+    .val-w { color: var(--w-color); }
+    .val-pre { color: var(--pre-color); } 
+    .val-cau { color: var(--cau-color); } 
+    .val-fused { color: var(--fused-color); }
+    .val-total { color: #38bdf8; }
 
-  intensityProfile = [];
+    .floating-controls { position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
+    .floating-btn { width: 42px; height: 42px; border-radius: 10px; background: var(--panel-bg); border: 1px solid var(--border-color); color: #fff; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .floating-btn:hover, .floating-btn.active { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-color: #38bdf8; }
+    
+    .banner-instruction {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(234, 179, 8, 0.95);
+      color: #000;
+      font-weight: 700;
+      padding: 8px 24px;
+      border-radius: 20px;
+      z-index: 30;
+      display: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+      pointer-events: none;
+    }
 
-  if (
-      procCanvas.width !== currentImage.width ||
-      procCanvas.height !== currentImage.height
-  ) {
-      procCanvas.width = currentImage.width;
-      procCanvas.height = currentImage.height;
-      procCtx.drawImage(currentImage,0,0);
-  }
+    .fs-7 { font-size: .78rem; }
+    .tab-btn { background: none; border: none; color: #94a3b8; padding: 8px 10px; border-bottom: 2px solid transparent; font-weight: 600; font-size: 0.8rem; }
+    .tab-btn.active { color: #38bdf8; border-bottom-color: #38bdf8; }
 
-  curve.forEach((p,index)=>{
+    .graph-panel {
+      background: #0b0f17;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
 
-      const x = Math.round(p.x);
-      const y = Math.round(p.y);
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-shield-check text-info fs-4"></i>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">ULTRA v2</span></h5>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <label class="btn btn-sm btn-outline-info mb-0">
+        <i class="bi bi-folder2-open me-1"></i> Open Radiograph
+        <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImageUpload(event)">
+      </label>
+      <button class="btn btn-sm btn-outline-secondary" onclick="exportWorkspace()">
+        <i class="bi bi-save me-1"></i> Save JSON
+      </button>
+      <label class="btn btn-sm btn-outline-secondary mb-0">
+        <i class="bi bi-folder-symlink me-1"></i> Load JSON
+        <input type="file" id="workspaceInput" accept=".json" hidden onchange="importWorkspace(event)">
+      </label>
+      <button class="btn btn-sm btn-success" onclick="exportCSV()">
+        <i class="bi bi-filetype-csv me-1"></i> Export CSV
+      </button>
+    </div>
+  </header>
 
-      if (
-          x < 0 ||
-          y < 0 ||
-          x >= currentImage.width ||
-          y >= currentImage.height
-      ) return;
+  <div class="main-container">
+    <!-- Sidebar Control Panel -->
+    <div class="sidebar p-3">
+      <div class="d-flex border-bottom border-secondary mb-3 justify-content-between">
+        <button id="tabBtnPipeline" class="tab-btn active" onclick="switchTab('pipeline')"><i class="bi bi-cpu me-1"></i> Detector</button>
+        <button id="tabBtnDisplay" class="tab-btn" onclick="switchTab('display')"><i class="bi bi-sliders me-1"></i> Preprocess</button>
+        <button id="tabBtnCalib" class="tab-btn" onclick="switchTab('calib')"><i class="bi bi-rulers me-1"></i> Calibration</button>
+        <button id="tabBtnGuide" class="tab-btn" onclick="switchTab('guide')"><i class="bi bi-book me-1"></i> Guide</button>
+      </div>
 
-      const px =
-          procCtx.getImageData(x,y,1,1).data;
+      <!-- TAB 1: Detector Pipeline -->
+      <div id="tabSectionPipeline">
+        <div class="card bg-dark border-primary p-3 mb-3">
+          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-diagram-3 me-1"></i> Strip-Sampling Boundary Detection</div>
+          <p class="text-muted fs-7 mb-2">
+            Extracts intensity profiles normal to your spine spline, smooths via moving average, calculates derivatives, and identifies exact centrum boundaries.
+          </p>
+          <button class="btn btn-sm btn-primary w-100 fw-bold mb-2" onclick="startSplinePlacement()">
+            <i class="bi bi-vector-pen me-1"></i> 1. Draw/Redraw Spine Path (5-20 nodes)
+          </button>
+          <button class="btn btn-sm btn-success w-100 fw-bold" onclick="runBoundaryDetectionPipeline()">
+            <i class="bi bi-magic me-1"></i> 2. Run Boundary Detection
+          </button>
+        </div>
 
-      const lum =
-          px[0]*0.299 +
-          px[1]*0.587 +
-          px[2]*0.114;
+        <!-- Detection Signal Inspector Graph -->
+        <div class="graph-panel">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fs-7 text-info fw-bold"><i class="bi bi-graph-up me-1"></i> Intensity Profile & Derivatives</span>
+            <span class="badge bg-secondary fs-7" id="graphStatus">Ready</span>
+          </div>
+          <canvas id="graphCanvas" width="390" height="120" style="width:100%; height:120px; background:#020305; border-radius:4px;"></canvas>
+          <div class="d-flex justify-content-between text-muted fs-7 mt-1">
+            <span><span style="color:#94a3b8">■</span> Raw</span>
+            <span><span style="color:#00f2fe">■</span> Smooth</span>
+            <span><span style="color:#eab308">■</span> Boundaries</span>
+            <span><span style="color:#10b981">■</span> Centers</span>
+          </div>
+        </div>
 
-      intensityProfile.push({
-          x:p.x,
-          y:p.y,
-          luminance:lum,
-          index:index
+        <!-- Anatomical Region Splitters -->
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> Region Configuration</h6>
+        <div class="card bg-dark border-secondary p-3 mb-3">
+          <div class="mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fs-7 fw-bold" style="color:var(--w-color)">Weberian Count ($W$)</span>
+              <span id="wCountDisplay" class="badge bg-light text-dark fw-bold">4</span>
+            </div>
+            <input type="range" class="form-range" id="wSlider" min="0" max="6" value="4" oninput="updateRegionSplits()">
+          </div>
+
+          <div class="mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fs-7 text-danger fw-bold">First Caudal Index ($C_1$)</span>
+              <span id="c1IndexDisplay" class="badge bg-warning text-dark fw-bold">13</span>
+            </div>
+            <input type="range" class="form-range" id="c1Slider" min="1" max="70" value="13" oninput="updateRegionSplits()">
+          </div>
+
+          <div class="d-flex justify-content-between fs-7 pt-2 border-top border-secondary text-center">
+            <div><span class="text-purple">W:</span> <strong id="cntW">4</strong></div>
+            <div><span class="text-danger">Pre:</span> <strong id="cntPre">12</strong></div>
+            <div><span class="text-info">Cau:</span> <strong id="cntCau">14</strong></div>
+            <div><span class="text-warning">Fused:</span> <strong id="cntFused">0</strong></div>
+          </div>
+        </div>
+
+        <!-- Manual Controls Legend -->
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-tools me-1"></i> Manual Correction Tools</h6>
+        <div class="card bg-dark border-secondary p-3 mb-3 fs-7 text-muted">
+          <ul class="ps-3 mb-0">
+            <li><strong>Click empty space:</strong> Add new vertebra center</li>
+            <li><strong>Drag point:</strong> Move landmark</li>
+            <li><strong>Right-click point:</strong> Delete vertebra</li>
+            <li><strong>Shift + Click point:</strong> Set as First Caudal ($C_1$)</li>
+            <li><strong>Ctrl + Z:</strong> Undo action</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- TAB 2: Image Preprocessing Filters -->
+      <div id="tabSectionDisplay" style="display:none;">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-filter-circle me-1"></i> Radiograph Enhancement Filters</h6>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Active Filter Mode</label>
+          <select id="filterModeSelect" class="form-select form-select-sm bg-dark text-light border-secondary" onchange="applyImagePreprocessing()">
+            <option value="original">Original</option>
+            <option value="histeq">Histogram Equalized</option>
+            <option value="clahe">CLAHE (Contrast Limited Adaptive)</option>
+            <option value="inverted">Inverted (Negative View)</option>
+            <option value="highpass">High-Pass Filter (Edge Sharpen)</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Brightness: <span id="brightnessVal">100%</span></label>
+          <input type="range" class="form-range" id="brightnessSlider" min="20" max="300" value="100" oninput="updateImageFilters()">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Contrast: <span id="contrastVal">100%</span></label>
+          <input type="range" class="form-range" id="contrastSlider" min="20" max="300" value="100" oninput="updateImageFilters()">
+        </div>
+        <button class="btn btn-sm btn-outline-secondary w-100" onclick="resetImageFilters()">Reset Filters</button>
+      </div>
+
+      <!-- TAB 3: Calibration & Real Units -->
+      <div id="tabSectionCalib" style="display:none;">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-rulers me-1"></i> Spatial Scale Calibration</h6>
+        <p class="text-muted fs-7 mb-2">Calibrate pixel-to-millimeter ratio using a known scale bar in the radiograph.</p>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Known Scale Bar Length (mm)</label>
+          <input type="number" id="scaleBarMM" class="form-control form-control-sm bg-dark text-light border-secondary" value="10" step="1">
+        </div>
+        <button class="btn btn-sm btn-outline-info w-100 mb-3" onclick="startScaleCalibration()">
+          <i class="bi bi-arrows-expand me-1"></i> Measure Scale Bar on Image
+        </button>
+        <div class="card bg-dark border-secondary p-2 fs-7">
+          <div>Current Ratio: <strong id="ppmDisplay" class="text-info">1.00 px/mm</strong></div>
+          <div>Total Spine Length: <strong id="spineLenDisplay" class="text-warning">0.0 mm</strong></div>
+        </div>
+      </div>
+
+      <!-- TAB 4: Guide -->
+      <div id="tabSectionGuide" style="display:none;">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-journal-medical me-1"></i> Taxonomic Nomenclature</h6>
+        <div class="card bg-dark border-secondary p-2 mb-2 fs-7">
+          <div class="fw-bold text-purple" style="color:var(--w-color)">Weberian Apparatus ($W_1 - W_4$)</div>
+          <div class="text-muted">Modified anterior vertebrae connecting swim bladder.</div>
+        </div>
+        <div class="card bg-dark border-secondary p-2 mb-2 fs-7">
+          <div class="fw-bold text-danger">Precaudal Vertebrae ($P_1, P_2 \dots$)</div>
+          <div class="text-muted">Abdominal vertebrae bearing ribs.</div>
+        </div>
+        <div class="card bg-dark border-secondary p-2 fs-7">
+          <div class="fw-bold text-info">Caudal Vertebrae ($C_1, C_2 \dots$)</div>
+          <div class="text-muted">Vertebrae possessing a closed ventral haemal arch.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas Viewport -->
+    <div class="canvas-wrapper mode-draw" id="canvasWrapper">
+      <div id="bannerInstruction" class="banner-instruction"></div>
+      <canvas id="imageCanvas"></canvas>
+      <canvas id="processingCanvas" style="display:none;"></canvas>
+
+      <!-- Floating Controls -->
+      <div class="floating-controls">
+        <button class="floating-btn" onclick="undoLastAction()" title="Undo (Ctrl+Z)"><i class="bi bi-arrow-counterclockwise"></i></button>
+        <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Toggle Pan"><i class="bi bi-hand-index-thumb"></i></button>
+        <button class="floating-btn" onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
+        <button class="floating-btn" onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
+        <button class="floating-btn" onclick="resetView()" title="Fit View"><i class="bi bi-arrows-angle-contract"></i></button>
+      </div>
+
+      <!-- Bottom AI Dock Stats -->
+      <div class="ai-dock">
+        <div class="counter-badge">
+          <span class="val val-w" id="dockWCount">4</span>
+          <span class="lbl">Weberian ($W$)</span>
+        </div>
+        <div class="counter-badge">
+          <span class="val val-pre" id="dockPreCount">12</span>
+          <span class="lbl">Precaudal</span>
+        </div>
+        <div class="counter-badge">
+          <span class="val val-cau" id="dockCauCount">14</span>
+          <span class="lbl">Caudal</span>
+        </div>
+        <div class="counter-badge">
+          <span class="val val-fused" id="dockFusedCount">0</span>
+          <span class="lbl">Fused</span>
+        </div>
+        <div class="counter-badge">
+          <span class="val val-total" id="dockTotalCount">30</span>
+          <span class="lbl">Total Count</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const canvas = $('imageCanvas'), ctx = canvas.getContext('2d'), wrapper = $('canvasWrapper');
+    const procCanvas = $('processingCanvas'), procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+    const graphCanvas = $('graphCanvas'), graphCtx = graphCanvas.getContext('2d');
+    const UI_SEL = '.ai-dock, .floating-controls';
+
+    let currentImage = null, imageName = 'specimen_001';
+    let rawImageBitmap = null;
+    let activeTool = 'draw';
+    let points = []; // {x, y, region, fused, boundaries: {a, b}}
+    let numWeberian = 4;
+    let firstCaudalIndex = 13;
+    let scale = 1, panX = 0, panY = 0, isPanning = false, startPanX = 0, startPanY = 0;
+    let draggingPoint = null, selectedPointIdx = null, suppressClick = false;
+    let placementStep = 0; // 0 = normal, 1 = spline placement, 2 = calibration
+    let spineNodes = [], currentHoverPos = null;
+    let calibStart = null, pixelsPerMM = 10.0; // 10 px = 1 mm default scale
+
+    let undoStack = [];
+    const MAX_HISTORY = 50;
+
+    let lastProfileData = null; // Stores raw/smooth/boundaries/centers for graph inspector
+
+    function saveState() {
+      undoStack.push({
+        points: JSON.parse(JSON.stringify(points)),
+        spineNodes: JSON.parse(JSON.stringify(spineNodes)),
+        numWeberian,
+        firstCaudalIndex
+      });
+      if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    }
+
+    function undoLastAction() {
+      if (undoStack.length === 0) return alert('No actions to undo.');
+      const prevState = undoStack.pop();
+      points = prevState.points;
+      spineNodes = prevState.spineNodes;
+      numWeberian = prevState.numWeberian;
+      firstCaudalIndex = prevState.firstCaudalIndex;
+      selectedPointIdx = null;
+      updateUIStats();
+      render();
+    }
+
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      imageName = file.name.replace(/\.[^.]+$/, '');
+      const reader = new FileReader();
+      reader.onload = evt => {
+        const img = new Image();
+        img.onload = () => {
+          currentImage = img;
+          rawImageBitmap = img;
+          points = []; spineNodes = []; placementStep = 0; undoStack = [];
+          procCanvas.width = img.width; procCanvas.height = img.height;
+          procCtx.drawImage(img, 0, 0);
+          resetView();
+          // Initialize default spine nodes across center
+          spineNodes = [
+            { x: img.width * 0.15, y: img.height * 0.5 },
+            { x: img.width * 0.45, y: img.height * 0.5 },
+            { x: img.width * 0.75, y: img.height * 0.5 }
+          ];
+          runBoundaryDetectionPipeline();
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function catmullRomSpline(p0, p1, p2, p3, samples = 20) {
+      const pts = [];
+      for (let i = 0; i < samples; i++) {
+        const t = i / samples, t2 = t * t, t3 = t2 * t;
+        const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+        const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+        pts.push({ x, y });
+      }
+      return pts;
+    }
+
+    function generateSmoothSpline(nodes) {
+      if (nodes.length < 2) return [...nodes];
+      const padded = [nodes[0], ...nodes, nodes[nodes.length - 1]];
+      const fullCurve = [];
+      for (let i = 0; i < padded.length - 3; i++) {
+        fullCurve.push(...catmullRomSpline(padded[i], padded[i+1], padded[i+2], padded[i+3], 25));
+      }
+      fullCurve.push(nodes[nodes.length - 1]);
+      return fullCurve;
+    }
+
+    /* ---------- STEP 2-6: STRIP SAMPLING & INTENSITY PROFILE DETECTION ---------- */
+    function runBoundaryDetectionPipeline() {
+      if (!currentImage || spineNodes.length < 2) return alert('Please draw a spine path first.');
+      saveState();
+      $('graphStatus').innerText = 'Processing...';
+
+      const fullCurve = generateSmoothSpline(spineNodes);
+      const imgW = currentImage.width, imgH = currentImage.height;
+      
+      if (procCanvas.width !== imgW || procCanvas.height !== imgH) {
+        procCanvas.width = imgW; procCanvas.height = imgH;
+        procCtx.drawImage(currentImage, 0, 0);
+      }
+
+      const imgData = procCtx.getImageData(0, 0, imgW, imgH);
+      const data = imgData.data;
+      const stripWidth = 40; // -20 to +20 pixels normal to spine
+
+      let cumulativeDist = [0];
+      let spineProfile = [];
+
+      for (let i = 0; i < fullCurve.length; i++) {
+        if (i > 0) {
+          const d = Math.hypot(fullCurve[i].x - fullCurve[i-1].x, fullCurve[i].y - fullCurve[i-1].y);
+          cumulativeDist.push(cumulativeDist[i-1] + d);
+        }
+
+        // Calculate normal angle
+        let dx = 0, dy = 0;
+        if (i === 0) { dx = fullCurve[1].x - fullCurve[0].x; dy = fullCurve[1].y - fullCurve[0].y; }
+        else if (i === fullCurve.length - 1) { dx = fullCurve[i].x - fullCurve[i-1].x; dy = fullCurve[i].y - fullCurve[i-1].y; }
+        else { dx = fullCurve[i+1].x - fullCurve[i-1].x; dy = fullCurve[i+1].y - fullCurve[i-1].y; }
+        
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len, ny = dx / len; // Normal vector
+
+        // Sample along perpendicular strip
+        let stripSum = 0, sampleCount = 0;
+        for (let w = -stripWidth/2; w <= stripWidth/2; w += 2) {
+          const sx = Math.round(fullCurve[i].x + nx * w);
+          const sy = Math.round(fullCurve[i].y + ny * w);
+          if (sx >= 0 && sx < imgW && sy >= 0 && sy < imgH) {
+            const idx = (sy * imgW + sx) * 4;
+            const lum = (data[idx] * 0.299 + data[idx+1] * 0.587 + data[idx+2] * 0.114);
+            stripSum += lum;
+            sampleCount++;
+          }
+        }
+        spineProfile.push(sampleCount > 0 ? stripSum / sampleCount : 0);
+      }
+
+      // Step 4: Moving Average Smoothing (Window = 9)
+      const windowSize = 9;
+      let smoothed = [];
+      for (let i = 0; i < spineProfile.length; i++) {
+        let sum = 0, count = 0;
+        for (let w = -Math.floor(windowSize/2); w <= Math.floor(windowSize/2); w++) {
+          if (i + w >= 0 && i + w < spineProfile.length) {
+            sum += spineProfile[i + w];
+            count++;
+          }
+        }
+        smoothed.push(sum / count);
+      }
+
+      // Step 5: First & Second Derivatives
+      let firstDeriv = new Array(smoothed.length).fill(0);
+      let secondDeriv = new Array(smoothed.length).fill(0);
+      for (let i = 1; i < smoothed.length - 1; i++) {
+        firstDeriv[i] = smoothed[i+1] - smoothed[i-1];
+      }
+      for (let i = 1; i < firstDeriv.length - 1; i++) {
+        secondDeriv[i] = firstDeriv[i+1] - firstDeriv[i-1];
+      }
+
+      // Step 6: Detect vertebral boundaries via zero-crossings and local peaks
+      let rawBoundaries = [];
+      for (let i = 1; i < firstDeriv.length - 1; i++) {
+        // Zero crossing with positive slope or prominent peaks in smoothed intensity
+        if ((firstDeriv[i] <= 0 && firstDeriv[i-1] > 0) || smoothed[i] > 180) {
+          rawBoundaries.push(i);
+        }
+      }
+
+      // Distance constraints filtering (ensuring ~15-30px min separation between vertebral centers)
+      let filteredBoundaries = [];
+      let minSpacing = 14;
+      rawBoundaries.forEach(bIdx => {
+        if (filteredBoundaries.length === 0 || (bIdx - filteredBoundaries[filteredBoundaries.length - 1]) >= minSpacing) {
+          filteredBoundaries.push(bIdx);
+        }
       });
 
-  });
-}
+      // Step 7: Compute vertebral centers between adjacent boundaries
+      points = [];
+      for (let i = 0; i < filteredBoundaries.length - 1; i++) {
+        const bAIdx = filteredBoundaries[i];
+        const bBIdx = filteredBoundaries[i+1];
+        const midIdx = Math.round((bAIdx + bBIdx) / 2);
+        const centerPos = fullCurve[midIdx] || fullCurve[fullCurve.length - 1];
+
+        points.push({
+          x: centerPos.x,
+          y: centerPos.y,
+          fused: false,
+          boundaries: { a: bAIdx, b: bBIdx }
+        });
+      }
+
+      // Fallback if automatic segmentation yields too few nodes
+      if (points.length < 10) {
+        points = [];
+        const fallbackCount = 28;
+        for (let i = 0; i < fallbackCount; i++) {
+          const idx = Math.floor((i / (fallbackCount - 1)) * (fullCurve.length - 1));
+          points.push({ x: fullCurve[idx].x, y: fullCurve[idx].y, fused: false });
+        }
+      }
+
+      lastProfileData = { raw: spineProfile, smooth: smoothed, boundaries: filteredBoundaries, centers: points };
+      renderGraphInspector();
+      reclassifyRegions();
+      $('graphStatus').innerText = `${points.length} Vertebrae Detected`;
+    }
+
+    function renderGraphInspector() {
+      if (!lastProfileData) return;
+      const w = graphCanvas.width, h = graphCanvas.height;
+      graphCtx.clearRect(0, 0, w, h);
+
+      const raw = lastProfileData.raw;
+      const smooth = lastProfileData.smooth;
+      if (!raw.length) return;
+
+      const maxVal = Math.max(...raw, 255);
+
+      // Draw raw signal
+      graphCtx.beginPath();
+      raw.forEach((val, i) => {
+        const x = (i / (raw.length - 1)) * w;
+        const y = h - (val / maxVal) * h * 0.8 - 10;
+        if (i === 0) graphCtx.moveTo(x, y); else graphCtx.lineTo(x, y);
+      });
+      graphCtx.strokeStyle = '#64748b'; graphCtx.lineWidth = 1; graphCtx.stroke();
+
+      // Draw smoothed signal
+      graphCtx.beginPath();
+      smooth.forEach((val, i) => {
+        const x = (i / (smooth.length - 1)) * w;
+        const y = h - (val / maxVal) * h * 0.8 - 10;
+        if (i === 0) graphCtx.moveTo(x, y); else graphCtx.lineTo(x, y);
+      });
+      graphCtx.strokeStyle = '#00f2fe'; graphCtx.lineWidth = 1.5; graphCtx.stroke();
+
+      // Draw boundaries
+      lastProfileData.boundaries.forEach(bIdx => {
+        const x = (bIdx / raw.length) * w;
+        graphCtx.beginPath(); graphCtx.moveTo(x, 0); graphCtx.lineTo(x, h);
+        graphCtx.strokeStyle = 'rgba(234, 179, 8, 0.4)'; graphCtx.lineWidth = 1; graphCtx.stroke();
+      });
+    }
+
+    function reclassifyRegions() {
+      points.forEach((pt, idx) => {
+        const n = idx + 1;
+        if (n <= numWeberian) pt.region = 'weberian';
+        else if (n < firstCaudalIndex) pt.region = 'precaudal';
+        else pt.region = 'caudal';
+      });
+      updateUIStats();
+      render();
+    }
+
+    function updateRegionSplits() {
+      saveState();
+      numWeberian = parseInt($('wSlider').value);
+      firstCaudalIndex = parseInt($('c1Slider').value);
+      reclassifyRegions();
+    }
+
+    function updateUIStats() {
+      const wCount = points.filter(p => p.region === 'weberian').length;
+      const preCount = points.filter(p => p.region === 'precaudal').length;
+      const cauCount = points.filter(p => p.region === 'caudal').length;
+      const fusedCount = points.filter(p => p.fused).length;
+
+      $('dockWCount').innerText = wCount;
+      $('dockPreCount').innerText = preCount;
+      $('dockCauCount').innerText = cauCount;
+      $('dockFusedCount').innerText = fusedCount;
+      $('dockTotalCount').innerText = points.length;
+
+      $('cntW').innerText = wCount;
+      $('cntPre').innerText = preCount;
+      $('cntCau').innerText = cauCount;
+      $('cntFused').innerText = fusedCount;
+
+      $('wSlider').max = points.length;
+      $('wSlider').value = numWeberian;
+      $('wCountDisplay').innerText = `W = ${numWeberian}`;
+
+      $('c1Slider').max = points.length;
+      $('c1Slider').value = firstCaudalIndex;
+      $('c1IndexDisplay').innerText = `C1 = #${firstCaudalIndex}`;
+
+      // Calculate real units
+      let spineLenPx = 0;
+      for (let i = 1; i < points.length; i++) {
+        spineLenPx += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
+      }
+      const spineLenMM = spineLenPx / pixelsPerMM;
+      $('spineLenDisplay').innerText = `${spineLenMM.toFixed(1)} mm`;
+      $('ppmDisplay').innerText = `${pixelsPerMM.toFixed(2)} px/mm`;
+    }
+
+    function getFormattedLabels() {
+      let w = 0, pre = 0, cau = 0;
+      return points.map((pt) => {
+        if (pt.region === 'weberian') return `W${++w}`;
+        if (pt.region === 'precaudal') return `P${++pre}`;
+        if (pt.region === 'caudal') return `C${++cau}`;
+        return `U`;
+      });
+    }
+
+    function render() {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!currentImage) return;
+
+      ctx.translate(panX, panY);
+      ctx.scale(scale, scale);
+      ctx.drawImage(currentImage, 0, 0);
+
+      const k = 1 / scale;
+
+      // Draw spline path if in placement mode
+      if (placementStep === 1 && spineNodes.length) {
+        const fullSpline = generateSmoothSpline(spineNodes);
+        ctx.beginPath();
+        ctx.moveTo(fullSpline[0].x, fullSpline[0].y);
+        fullSpline.forEach(p => ctx.lineTo(p.x, p.y));
+        if (currentHoverPos) ctx.lineTo(currentHoverPos.x, currentHoverPos.y);
+        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2 * k; ctx.stroke();
+
+        spineNodes.forEach(node => {
+          ctx.beginPath(); ctx.arc(node.x, node.y, 6 * k, 0, Math.PI * 2);
+          ctx.fillStyle = '#38bdf8'; ctx.fill();
+        });
+      }
+
+      const labels = getFormattedLabels();
+      const total = points.length;
+
+      points.forEach((pt, i) => {
+        const n = i + 1;
+        const isSelected = (selectedPointIdx === i);
+
+        let color = '#00f2fe';
+        if (pt.region === 'weberian') color = '#a855f7';
+        else if (pt.region === 'precaudal') color = '#ff4d4d';
+        if (pt.fused) color = '#eab308';
+
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, (isSelected ? 9 : 6) * k, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.strokeStyle = isSelected ? '#ffffff' : '#07090e';
+        ctx.lineWidth = 2 * k;
+        ctx.fill(); ctx.stroke();
+
+        // Render Publication Labeling (W1, P1, C1...)
+        const tagText = labels[i];
+        const lx = pt.x + 20 * k;
+        const ly = pt.y - 12 * k;
+
+        ctx.font = `bold ${11 * k}px sans-serif`;
+        const textWidth = ctx.measureText(tagText).width;
+
+        ctx.fillStyle = 'rgba(8, 12, 20, 0.9)';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1 * k;
+        ctx.beginPath();
+        ctx.roundRect(lx - 2 * k, ly - 9 * k, textWidth + 6 * k, 13 * k, 3 * k);
+        ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(tagText, lx, ly + 1.5 * k);
+      });
+
+      // Render Calibration Line
+      if (placementStep === 2 && calibStart && currentHoverPos) {
+        ctx.beginPath();
+        ctx.moveTo(calibStart.x, calibStart.y);
+        ctx.lineTo(currentHoverPos.x, currentHoverPos.y);
+        ctx.strokeStyle = '#10b981'; ctx.lineWidth = 3 * k; ctx.stroke();
+      }
+    }
+
+    function getCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: (e.clientX - rect.left - panX) / scale, y: (e.clientY - rect.top - panY) / scale };
+    }
+
+    const hitPoint = e => {
+      const c = getCanvasCoords(e), r = 14 / scale;
+      return points.findIndex(pt => Math.hypot(pt.x - c.x, pt.y - c.y) < r);
+    };
+
+    wrapper.addEventListener('mousedown', e => {
+      if (e.target.closest(UI_SEL)) return;
+      suppressClick = false;
+
+      if (activeTool === 'pan' || e.button === 1) {
+        isPanning = true; startPanX = e.clientX - panX; startPanY = e.clientY - panY;
+        return;
+      }
+
+      const c = getCanvasCoords(e);
+      if (placementStep === 2) {
+        if (!calibStart) {
+          calibStart = c;
+        } else {
+          const pxDist = Math.hypot(c.x - calibStart.x, c.y - calibStart.y);
+          const mm = parseFloat($('scaleBarMM').value) || 10;
+          pixelsPerMM = pxDist / mm;
+          placementStep = 0;
+          hideBanner();
+          updateUIStats();
+          render();
+        }
+        return;
+      }
+
+      if (placementStep === 1) {
+        spineNodes.push(c); render();
+        return;
+      }
+
+      if (e.button === 0) {
+        const idx = hitPoint(e);
+        if (idx !== -1) {
+          selectedPointIdx = idx;
+          if (e.shiftKey) {
+            saveState();
+            firstCaudalIndex = idx + 1;
+            updateRegionSplits();
+            return;
+          }
+          draggingPoint = idx;
+        } else {
+          selectedPointIdx = null;
+        }
+        render();
+      }
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (isPanning) {
+        panX = e.clientX - startPanX; panY = e.clientY - startPanY;
+        render(); return;
+      }
+      const c = getCanvasCoords(e);
+      currentHoverPos = c;
+
+      if (draggingPoint !== null) {
+        points[draggingPoint].x = c.x;
+        points[draggingPoint].y = c.y;
+        render(); return;
+      }
+      if (placementStep === 1 || placementStep === 2) render();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isPanning = false;
+      if (draggingPoint !== null) { draggingPoint = null; suppressClick = true; render(); }
+    });
+
+    wrapper.addEventListener('click', e => {
+      if (e.target.closest(UI_SEL) || suppressClick || placementStep !== 0) { suppressClick = false; return; }
+      const c = getCanvasCoords(e);
+      if (hitPoint(e) === -1) {
+        saveState();
+        // Insert new point at nearest position
+        points.push({ x: c.x, y: c.y, fused: false });
+        reclassifyRegions();
+      }
+    });
+
+    wrapper.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const idx = hitPoint(e);
+      if (idx !== -1) {
+        saveState();
+        points.splice(idx, 1);
+        reclassifyRegions();
+      }
+    });
+
+    function startSplinePlacement() {
+      saveState();
+      placementStep = 1; spineNodes = [];
+      setTool('draw');
+      showBanner('Click 5 to 20 nodes along the vertebral column from Head to Tail. Double-click or press Enter when done.');
+      render();
+    }
+
+    function finishSplinePlacement() {
+      if (placementStep !== 1) return;
+      if (spineNodes.length < 2) return alert('Please place at least 2 spine nodes.');
+      placementStep = 0; hideBanner();
+      runBoundaryDetectionPipeline();
+    }
+
+    wrapper.addEventListener('dblclick', e => {
+      if (!e.target.closest(UI_SEL) && placementStep === 1) finishSplinePlacement();
+    });
+
+    window.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT') return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLastAction(); }
+      if (e.key === 'Enter' && placementStep === 1) finishSplinePlacement();
+      if (e.key === 'Escape') { placementStep = 0; hideBanner(); render(); }
+    });
+
+    function startScaleCalibration() {
+      placementStep = 2; calibStart = null;
+      showBanner('Click the start and end of the known scale bar on the image.');
+      setTool('draw');
+    }
+
+    /* ---------- Preprocessing Filters ---------- */
+    function applyImagePreprocessing() {
+      if (!rawImageBitmap) return;
+      const mode = $('filterModeSelect').value;
+      const w = rawImageBitmap.width, h = rawImageBitmap.height;
+      procCanvas.width = w; procCanvas.height = h;
+      procCtx.drawImage(rawImageBitmap, 0, 0);
+
+      if (mode === 'original') {
+        currentImage = rawImageBitmap;
+        render();
+        return;
+      }
+
+      const imgData = procCtx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      if (mode === 'inverted') {
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = 255 - data[i];
+          data[i+1] = 255 - data[i+1];
+          data[i+2] = 255 - data[i+2];
+        }
+      } else if (mode === 'histeq' || mode === 'clahe') {
+        // Simple histogram equalization simulation
+        let hist = new Array(256).fill(0);
+        for (let i = 0; i < data.length; i += 4) {
+          let lum = Math.round(data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
+          hist[lum]++;
+        }
+        let cdf = new Array(256).fill(0);
+        let cdfMin = 0;
+        let totalPixels = (data.length / 4);
+        let sum = 0;
+        for (let i = 0; i < 256; i++) {
+          sum += hist[i];
+          cdf[i] = sum;
+          if (cdfMin === 0 && hist[i] > 0) cdfMin = cdf[i];
+        }
+        for (let i = 0; i < data.length; i += 4) {
+          let lum = Math.round(data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
+          let eq = Math.round(((cdf[lum] - cdfMin) / (totalPixels - cdfMin)) * 255);
+          data[i] = eq; data[i+1] = eq; data[i+2] = eq;
+        }
+      }
+
+      procCtx.putImageData(imgData, 0, 0);
+      const eqImg = new Image();
+      eqImg.onload = () => { currentImage = eqImg; render(); };
+      eqImg.src = procCanvas.toDataURL();
+    }
+
+    function updateImageFilters() {
+      const b = $('brightnessSlider').value, c =$('contrastSlider').value;
+      $('brightnessVal').innerText = b + '\%';$('contrastVal').innerText = c + '%';
+      canvas.style.filter = `brightness(${b}%) contrast(${c}%)`;
+    }
+    function resetImageFilters() {
+      $('brightnessSlider').value = 100; $('contrastSlider').value = 100;
+      $('filterModeSelect').value = 'original';
+      updateImageFilters(); applyImagePreprocessing();
+    }
+
+    /* ---------- Workspace Import/Export & CSV ---------- */
+    function exportWorkspace() {
+      const ws = {
+        imageName, spineNodes, points, numWeberian, firstCaudalIndex, scale, panX, panY, pixelsPerMM
+      };
+      downloadFile(JSON.stringify(ws, null, 2), `${imageName}_workspace.json`, 'application/json');
+    }
+
+    function importWorkspace(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = evt => {
+        try {
+          const ws = JSON.parse(evt.target.result);
+          imageName = ws.imageName || 'specimen';
+          spineNodes = ws.spineNodes || [];
+          points = ws.points || [];
+          numWeberian = ws.numWeberian || 4;
+          firstCaudalIndex = ws.firstCaudalIndex || 13;
+          scale = ws.scale || 1; panX = ws.panX || 0; panY = ws.panY || 0;
+          pixelsPerMM = ws.pixelsPerMM || 10.0;
+          updateUIStats();
+          render();
+          alert('Workspace restored successfully!');
+        } catch (err) { alert('Invalid workspace JSON file.'); }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function exportCSV() {
+      const labels = getFormattedLabels();
+      let spineLenPx = 0;
+      for (let i = 1; i < points.length; i++) {
+        spineLenPx += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
+      }
+      const spineLenMM = spineLenPx / pixelsPerMM;
+      const meanSpacingMM = (spineLenMM / points.length);
+
+      let csv = `SPECIMEN_ID,TOTAL_COUNT,WEBERIAN_COUNT,PRECAUDAL_COUNT,CAUDAL_COUNT,FUSED_COUNT,SPINE_LENGTH_MM,MEAN_SPACING_MM\n`;
+      csv += `${imageName},${points.length},${points.filter(p=>p.region==='weberian').length},${points.filter(p=>p.region==='precaudal').length},${points.filter(p=>p.region==='caudal').length},${points.filter(p=>p.fused).length},${spineLenMM.toFixed(2)},${meanSpacingMM.toFixed(2)}\n\n`;
+
+      csv += `LANDMARK,X_PX,Y_PX,TYPE,LABEL\n`;
+      points.forEach((pt, i) => {
+        csv += `${i+1},${pt.x.toFixed(2)},${pt.y.toFixed(2)},${pt.region},${labels[i]}\n`;
+      });
+
+      downloadFile(csv, `${imageName}_morphometrics.csv`, 'text/csv');
+    }
+
+    function downloadFile(content, fileName, mimeType) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
+      a.download = fileName;
+      a.click();
+    }
+
+    function switchTab(tab) {
+      $('tabSectionPipeline').style.display = tab === 'pipeline' ? 'block' : 'none';$('tabSectionDisplay').style.display = tab === 'display' ? 'block' : 'none';
+      $('tabSectionCalib').style.display = tab === 'calib' ? 'block' : 'none';$('tabSectionGuide').style.display = tab === 'guide' ? 'block' : 'none';
+
+      $('tabBtnPipeline').className = `tab-btn ${tab === 'pipeline' ? 'active' : ''}`;
+      $('tabBtnDisplay').className = `tab-btn ${tab === 'display' ? 'active' : ''}`;
+      $('tabBtnCalib').className = `tab-btn ${tab === 'calib' ? 'active' : ''}`;
+      $('tabBtnGuide').className = `tab-btn ${tab === 'guide' ? 'active' : ''}`;
+    }
+
+    function showBanner(msg) { const b = $('bannerInstruction'); b.innerText = msg; b.style.display = 'block'; }
+    function hideBanner() { $('bannerInstruction').style.display = 'none'; }
+    function zoomIn() { scale = Math.min(40, scale * 1.25); render(); }
+    function zoomOut() { scale = Math.max(0.05, scale * 0.8); render(); }
+    function resetView() {
+      if (!currentImage) return;
+      scale = Math.min(wrapper.clientWidth / currentImage.width, wrapper.clientHeight / currentImage.height) * 0.9;
+      panX = (wrapper.clientWidth - currentImage.width * scale) / 2;
+      panY = (wrapper.clientHeight - currentImage.height * scale) / 2;
+      render();
+    }
+    function setTool(tool) {
+      activeTool = tool;
+      $('btnPanToggle').className = `floating-btn ${tool === 'pan' ? 'active' : ''}`;
+      wrapper.className = tool === 'pan' ? 'canvas-wrapper mode-pan' : 'canvas-wrapper mode-draw';
+    }
+
+    window.addEventListener('resize', () => {
+      canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight;
+      render();
+    });
+    canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight;
+  </script>
+</body>
+</html>
