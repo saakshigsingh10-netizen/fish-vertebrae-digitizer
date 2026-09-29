@@ -3,17 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VertebraDigitizer Ultra v2 - Research-Grade Ichthyological Radiograph Analysis</title>
-  <!-- Bootstrap 5 & Bootstrap Icons -->
+  <title>VertebraDigitizer Ultra v2 - Ichthyological Radiograph Analysis</title>
+  <!-- Bootstrap 5 & Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
     :root {
-      --w-color: #a855f7;      /* Weberian Apparatus */
+      --w-color: #a855f7;      /* Weberian */
       --pre-color: #ff4d4d;    /* Precaudal */
       --cau-color: #00f2fe;    /* Caudal */
       --fused-color: #eab308;  /* Fused */
-      --u-color: #94a3b8;      /* Urostyle */
       --bg-dark: #07090e;
       --panel-bg: rgba(13, 17, 25, 0.96);
       --border-color: rgba(255, 255, 255, 0.12);
@@ -21,7 +20,7 @@
     body {
       background: var(--bg-dark);
       color: #e2e8f0;
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       overflow: hidden;
       height: 100vh;
       margin: 0;
@@ -42,7 +41,7 @@
       position: relative;
     }
     .sidebar {
-      width: 440px;
+      width: 420px;
       background: var(--panel-bg);
       border-right: 1px solid var(--border-color);
       display: flex;
@@ -127,7 +126,7 @@
 </head>
 <body>
 
-  <!-- App Header -->
+  <!-- Header -->
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-shield-check text-info fs-4"></i>
@@ -135,9 +134,12 @@
     </div>
     <div class="d-flex gap-2 align-items-center">
       <label class="btn btn-sm btn-outline-info mb-0">
-        <i class="bi bi-folder2-open me-1"></i> Open Radiograph
+        <i class="bi bi-folder2-open me-1"></i> Open Image
         <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImageUpload(event)">
       </label>
+      <button class="btn btn-sm btn-outline-secondary" onclick="generateSampleRadiograph()">
+        <i class="bi bi-magic me-1"></i> Sample Specimen
+      </button>
       <button class="btn btn-sm btn-outline-secondary" onclick="exportWorkspace()">
         <i class="bi bi-save me-1"></i> Save JSON
       </button>
@@ -152,46 +154,46 @@
   </header>
 
   <div class="main-container">
-    <!-- Sidebar Control Panel -->
+    <!-- Sidebar -->
     <div class="sidebar p-3">
       <div class="d-flex border-bottom border-secondary mb-3 justify-content-between">
         <button id="tabBtnPipeline" class="tab-btn active" onclick="switchTab('pipeline')"><i class="bi bi-cpu me-1"></i> Detector</button>
-        <button id="tabBtnDisplay" class="tab-btn" onclick="switchTab('display')"><i class="bi bi-sliders me-1"></i> Preprocess</button>
-        <button id="tabBtnCalib" class="tab-btn" onclick="switchTab('calib')"><i class="bi bi-rulers me-1"></i> Calibration</button>
+        <button id="tabBtnDisplay" class="tab-btn" onclick="switchTab('display')"><i class="bi bi-sliders me-1"></i> Image</button>
+        <button id="tabBtnCalib" class="tab-btn" onclick="switchTab('calib')"><i class="bi bi-rulers me-1"></i> Scale</button>
         <button id="tabBtnGuide" class="tab-btn" onclick="switchTab('guide')"><i class="bi bi-book me-1"></i> Guide</button>
       </div>
 
-      <!-- TAB 1: Detector Pipeline -->
+      <!-- TAB 1: Detector -->
       <div id="tabSectionPipeline">
         <div class="card bg-dark border-primary p-3 mb-3">
-          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-diagram-3 me-1"></i> Strip-Sampling Boundary Detection</div>
+          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-diagram-3 me-1"></i> Strip Sampling Boundary Detector</div>
           <p class="text-muted fs-7 mb-2">
-            Extracts intensity profiles normal to your spine spline, smooths via moving average, calculates derivatives, and identifies exact centrum boundaries.
+            Extracts radiodensity profiles normal to the spinal curvature to automatically mark vertebral centers.
           </p>
           <button class="btn btn-sm btn-primary w-100 fw-bold mb-2" onclick="startSplinePlacement()">
-            <i class="bi bi-vector-pen me-1"></i> 1. Draw/Redraw Spine Path (5-20 nodes)
+            <i class="bi bi-vector-pen me-1"></i> 1. Draw/Redraw Spine Curve
           </button>
           <button class="btn btn-sm btn-success w-100 fw-bold" onclick="runBoundaryDetectionPipeline()">
-            <i class="bi bi-magic me-1"></i> 2. Run Boundary Detection
+            <i class="bi bi-magic me-1"></i> 2. Detect Vertebrae
           </button>
         </div>
 
-        <!-- Detection Signal Inspector Graph -->
+        <!-- Graph Inspector -->
         <div class="graph-panel">
           <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fs-7 text-info fw-bold"><i class="bi bi-graph-up me-1"></i> Intensity Profile & Derivatives</span>
+            <span class="fs-7 text-info fw-bold"><i class="bi bi-graph-up me-1"></i> Intensity Profile</span>
             <span class="badge bg-secondary fs-7" id="graphStatus">Ready</span>
           </div>
-          <canvas id="graphCanvas" width="390" height="120" style="width:100%; height:120px; background:#020305; border-radius:4px;"></canvas>
+          <canvas id="graphCanvas" width="380" height="110" style="width:100%; height:110px; background:#020305; border-radius:4px;"></canvas>
           <div class="d-flex justify-content-between text-muted fs-7 mt-1">
-            <span><span style="color:#64748b">■</span> Raw</span>
-            <span><span style="color:#00f2fe">■</span> Smooth</span>
+            <span><span style="color:#64748b">■</span> Raw Profile</span>
+            <span><span style="color:#00f2fe">■</span> Smoothed Signal</span>
             <span><span style="color:#eab308">■</span> Boundaries</span>
           </div>
         </div>
 
-        <!-- Anatomical Region Splitters -->
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> Region Configuration</h6>
+        <!-- Region Splits -->
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-sliders me-1"></i> Region Counts</h6>
         <div class="card bg-dark border-secondary p-3 mb-3">
           <div class="mb-2">
             <div class="d-flex justify-content-between align-items-center mb-1">
@@ -217,29 +219,28 @@
           </div>
         </div>
 
-        <!-- Manual Controls Legend -->
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-tools me-1"></i> Manual Correction Tools</h6>
+        <!-- Keyboard Controls -->
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-tools me-1"></i> Shortcuts & Controls</h6>
         <div class="card bg-dark border-secondary p-3 mb-3 fs-7 text-muted">
           <ul class="ps-3 mb-0">
-            <li><strong>Click empty space:</strong> Add new vertebra center</li>
-            <li><strong>Drag point:</strong> Move landmark</li>
-            <li><strong>Right-click point:</strong> Delete vertebra</li>
-            <li><strong>Shift + Click point:</strong> Set as First Caudal (C₁)</li>
-            <li><strong>Ctrl + Z:</strong> Undo action</li>
+            <li><strong>Click Canvas:</strong> Add landmark point</li>
+            <li><strong>Drag Point:</strong> Reposition landmark</li>
+            <li><strong>Right-Click Point:</strong> Remove landmark</li>
+            <li><strong>Shift + Click Point:</strong> Mark as First Caudal (C₁)</li>
+            <li><strong>Ctrl + Z:</strong> Undo step</li>
           </ul>
         </div>
       </div>
 
-      <!-- TAB 2: Image Preprocessing Filters -->
+      <!-- TAB 2: Preprocess -->
       <div id="tabSectionDisplay" style="display:none;">
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-filter-circle me-1"></i> Radiograph Enhancement Filters</h6>
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-filter-circle me-1"></i> Image Controls</h6>
         <div class="mb-3">
-          <label class="form-label small mb-1">Active Filter Mode</label>
+          <label class="form-label small mb-1">Filter View</label>
           <select id="filterModeSelect" class="form-select form-select-sm bg-dark text-light border-secondary" onchange="applyImagePreprocessing()">
-            <option value="original">Original</option>
+            <option value="original">Original Radiograph</option>
             <option value="histeq">Histogram Equalized</option>
-            <option value="clahe">CLAHE (Contrast Limited Adaptive)</option>
-            <option value="inverted">Inverted (Negative View)</option>
+            <option value="inverted">Inverted X-Ray (Negative)</option>
           </select>
         </div>
         <div class="mb-3">
@@ -250,64 +251,64 @@
           <label class="form-label small mb-1">Contrast: <span id="contrastVal">100%</span></label>
           <input type="range" class="form-range" id="contrastSlider" min="20" max="300" value="100" oninput="updateImageFilters()">
         </div>
-        <button class="btn btn-sm btn-outline-secondary w-100" onclick="resetImageFilters()">Reset Filters</button>
+        <button class="btn btn-sm btn-outline-secondary w-100" onclick="resetImageFilters()">Reset Adjustments</button>
       </div>
 
-      <!-- TAB 3: Calibration & Real Units -->
+      <!-- TAB 3: Calibration -->
       <div id="tabSectionCalib" style="display:none;">
         <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-rulers me-1"></i> Spatial Scale Calibration</h6>
-        <p class="text-muted fs-7 mb-2">Calibrate pixel-to-millimeter ratio using a known scale bar in the radiograph.</p>
+        <p class="text-muted fs-7 mb-2">Measure a known scale bar in the image to calibrate measurements in mm.</p>
         <div class="mb-3">
-          <label class="form-label small mb-1">Known Scale Bar Length (mm)</label>
+          <label class="form-label small mb-1">Scale Bar Length (mm)</label>
           <input type="number" id="scaleBarMM" class="form-control form-control-sm bg-dark text-light border-secondary" value="10" step="1">
         </div>
         <button class="btn btn-sm btn-outline-info w-100 mb-3" onclick="startScaleCalibration()">
-          <i class="bi bi-arrows-expand me-1"></i> Measure Scale Bar on Image
+          <i class="bi bi-arrows-expand me-1"></i> Calibrate Scale Bar
         </button>
         <div class="card bg-dark border-secondary p-2 fs-7">
-          <div>Current Ratio: <strong id="ppmDisplay" class="text-info">1.00 px/mm</strong></div>
+          <div>Scale: <strong id="ppmDisplay" class="text-info">10.00 px/mm</strong></div>
           <div>Total Spine Length: <strong id="spineLenDisplay" class="text-warning">0.0 mm</strong></div>
         </div>
       </div>
 
       <!-- TAB 4: Guide -->
       <div id="tabSectionGuide" style="display:none;">
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-journal-medical me-1"></i> Taxonomic Nomenclature</h6>
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-journal-medical me-1"></i> Anatomical Reference</h6>
         <div class="card bg-dark border-secondary p-2 mb-2 fs-7">
           <div class="fw-bold" style="color:var(--w-color)">Weberian Apparatus (W₁ - W₄)</div>
-          <div class="text-muted">Modified anterior vertebrae connecting swim bladder.</div>
+          <div class="text-muted">Anterior modified vertebrae connecting the swim bladder to internal ear.</div>
         </div>
         <div class="card bg-dark border-secondary p-2 mb-2 fs-7">
-          <div class="fw-bold text-danger">Precaudal Vertebrae (P₁, P₂ ...)</div>
-          <div class="text-muted">Abdominal vertebrae bearing ribs.</div>
+          <div class="fw-bold text-danger">Precaudal Vertebrae (P₁ - Pₙ)</div>
+          <div class="text-muted">Abdominal vertebrae bearing pleural ribs.</div>
         </div>
         <div class="card bg-dark border-secondary p-2 fs-7">
-          <div class="fw-bold text-info">Caudal Vertebrae (C₁, C₂ ...)</div>
-          <div class="text-muted">Vertebrae possessing a closed ventral haemal arch.</div>
+          <div class="fw-bold text-info">Caudal Vertebrae (C₁ - Cₙ)</div>
+          <div class="text-muted">Posterior vertebrae with fully closed haemal arches.</div>
         </div>
       </div>
     </div>
 
-    <!-- Canvas Viewport -->
+    <!-- Canvas Container -->
     <div class="canvas-wrapper mode-draw" id="canvasWrapper">
       <div id="bannerInstruction" class="banner-instruction"></div>
       <canvas id="imageCanvas"></canvas>
       <canvas id="processingCanvas" style="display:none;"></canvas>
 
-      <!-- Floating Controls -->
+      <!-- View Controls -->
       <div class="floating-controls">
         <button class="floating-btn" onclick="undoLastAction()" title="Undo (Ctrl+Z)"><i class="bi bi-arrow-counterclockwise"></i></button>
-        <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Toggle Pan"><i class="bi bi-hand-index-thumb"></i></button>
+        <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Toggle Pan Mode"><i class="bi bi-hand-index-thumb"></i></button>
         <button class="floating-btn" onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
         <button class="floating-btn" onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
         <button class="floating-btn" onclick="resetView()" title="Fit View"><i class="bi bi-arrows-angle-contract"></i></button>
       </div>
 
-      <!-- Bottom AI Dock Stats -->
+      <!-- Bottom Dock -->
       <div class="ai-dock">
         <div class="counter-badge">
           <span class="val val-w" id="dockWCount">4</span>
-          <span class="lbl">Weberian (W)</span>
+          <span class="lbl">Weberian</span>
         </div>
         <div class="counter-badge">
           <span class="val val-pre" id="dockPreCount">12</span>
@@ -329,7 +330,6 @@
     </div>
   </div>
 
-  <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
@@ -339,7 +339,7 @@
     const graphCanvas = $('graphCanvas'), graphCtx = graphCanvas.getContext('2d');
     const UI_SEL = '.ai-dock, .floating-controls';
 
-    let currentImage = null, imageName = 'specimen_001';
+    let currentImage = null, imageName = 'specimen_sample';
     let rawImageBitmap = null;
     let activeTool = 'draw';
     let points = []; 
@@ -354,6 +354,10 @@
     let undoStack = [];
     const MAX_HISTORY = 50;
     let lastProfileData = null;
+
+    window.addEventListener('load', () => {
+      generateSampleRadiograph();
+    });
 
     function saveState() {
       undoStack.push({
@@ -377,6 +381,90 @@
       render();
     }
 
+    function generateSampleRadiograph() {
+      const w = 1200, h = 600;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = w; offscreen.height = h;
+      const oCtx = offscreen.getContext('2d');
+
+      // Background gradient
+      const bg = oCtx.createRadialGradient(w/2, h/2, 50, w/2, h/2, 600);
+      bg.addColorStop(0, '#1a202c');
+      bg.addColorStop(1, '#05070a');
+      oCtx.fillStyle = bg;
+      oCtx.fillRect(0, 0, w, h);
+
+      // Fish silhouette body outline
+      oCtx.beginPath();
+      oCtx.moveTo(100, 300);
+      oCtx.bezierCurveTo(250, 150, 650, 150, 1050, 300);
+      oCtx.bezierCurveTo(650, 450, 250, 450, 100, 300);
+      oCtx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      oCtx.fill();
+      oCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      oCtx.lineWidth = 2;
+      oCtx.stroke();
+
+      // Skull
+      oCtx.beginPath();
+      oCtx.arc(220, 300, 60, 0, Math.PI * 2);
+      oCtx.fillStyle = 'rgba(200, 215, 230, 0.35)';
+      oCtx.fill();
+
+      // Vertebrae chain simulation
+      const numVerts = 30;
+      const startX = 260, endX = 1000, startY = 300, endY = 300;
+      
+      for (let i = 0; i < numVerts; i++) {
+        const t = i / (numVerts - 1);
+        const vx = startX + t * (endX - startX);
+        const vy = startY + Math.sin(t * Math.PI) * -20;
+        
+        oCtx.beginPath();
+        oCtx.roundRect(vx - 8, vy - 12, 16, 24, 4);
+        oCtx.fillStyle = 'rgba(240, 245, 255, 0.7)';
+        oCtx.fill();
+        oCtx.strokeStyle = 'rgba(50, 60, 80, 0.8)';
+        oCtx.lineWidth = 2;
+        oCtx.stroke();
+
+        // Ribs / Arches
+        oCtx.beginPath();
+        oCtx.moveTo(vx, vy - 12);
+        oCtx.lineTo(vx + 4, vy - 35);
+        oCtx.moveTo(vx, vy + 12);
+        oCtx.lineTo(vx + 4, vy + 35);
+        oCtx.strokeStyle = 'rgba(200, 220, 240, 0.3)';
+        oCtx.lineWidth = 1.5;
+        oCtx.stroke();
+      }
+
+      // Scale bar simulation
+      oCtx.fillStyle = '#ffffff';
+      oCtx.fillRect(100, 520, 100, 6);
+      oCtx.font = '14px sans-serif';
+      oCtx.fillText('10 mm Scale Bar', 100, 510);
+
+      const img = new Image();
+      img.onload = () => {
+        currentImage = img;
+        rawImageBitmap = img;
+        imageName = 'synthetic_specimen_01';
+        procCanvas.width = w; procCanvas.height = h;
+        procCtx.drawImage(img, 0, 0);
+        
+        spineNodes = [
+          { x: 260, y: 300 },
+          { x: 630, y: 280 },
+          { x: 1000, y: 300 }
+        ];
+        
+        resetView();
+        runBoundaryDetectionPipeline();
+      };
+      img.src = offscreen.toDataURL();
+    }
+
     function handleImageUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -392,9 +480,9 @@
           procCtx.drawImage(img, 0, 0);
           resetView();
           spineNodes = [
-            { x: img.width * 0.15, y: img.height * 0.5 },
-            { x: img.width * 0.45, y: img.height * 0.5 },
-            { x: img.width * 0.75, y: img.height * 0.5 }
+            { x: img.width * 0.2, y: img.height * 0.5 },
+            { x: img.width * 0.5, y: img.height * 0.5 },
+            { x: img.width * 0.8, y: img.height * 0.5 }
           ];
           runBoundaryDetectionPipeline();
         };
@@ -408,7 +496,7 @@
       for (let i = 0; i < samples; i++) {
         const t = i / samples, t2 = t * t, t3 = t2 * t;
         const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
-        const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+        const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.x) * t3);
         pts.push({ x, y });
       }
       return pts;
@@ -426,7 +514,7 @@
     }
 
     function runBoundaryDetectionPipeline() {
-      if (!currentImage || spineNodes.length < 2) return alert('Please draw a spine path first.');
+      if (!currentImage || spineNodes.length < 2) return;
       saveState();
       $('graphStatus').innerText = 'Processing...';
 
@@ -440,7 +528,7 @@
 
       const imgData = procCtx.getImageData(0, 0, imgW, imgH);
       const data = imgData.data;
-      const stripWidth = 40;
+      const stripWidth = 30;
 
       let spineProfile = [];
 
@@ -467,7 +555,7 @@
         spineProfile.push(sampleCount > 0 ? stripSum / sampleCount : 0);
       }
 
-      const windowSize = 9;
+      const windowSize = 7;
       let smoothed = [];
       for (let i = 0; i < spineProfile.length; i++) {
         let sum = 0, count = 0;
@@ -480,54 +568,41 @@
         smoothed.push(sum / count);
       }
 
-      let firstDeriv = new Array(smoothed.length).fill(0);
-      for (let i = 1; i < smoothed.length - 1; i++) {
-        firstDeriv[i] = smoothed[i+1] - smoothed[i-1];
-      }
-
-      let rawBoundaries = [];
-      for (let i = 1; i < firstDeriv.length - 1; i++) {
-        if ((firstDeriv[i] <= 0 && firstDeriv[i-1] > 0) || smoothed[i] > 180) {
-          rawBoundaries.push(i);
+      let peaks = [];
+      for (let i = 2; i < smoothed.length - 2; i++) {
+        if (smoothed[i] > smoothed[i-1] && smoothed[i] > smoothed[i-2] &&
+            smoothed[i] > smoothed[i+1] && smoothed[i] > smoothed[i+2]) {
+          peaks.push(i);
         }
       }
 
-      let filteredBoundaries = [];
-      let minSpacing = 14;
-      rawBoundaries.forEach(bIdx => {
-        if (filteredBoundaries.length === 0 || (bIdx - filteredBoundaries[filteredBoundaries.length - 1]) >= minSpacing) {
-          filteredBoundaries.push(bIdx);
+      let filteredPeaks = [];
+      let minSpacing = 12;
+      peaks.forEach(pIdx => {
+        if (filteredPeaks.length === 0 || (pIdx - filteredPeaks[filteredPeaks.length - 1]) >= minSpacing) {
+          filteredPeaks.push(pIdx);
         }
       });
 
       points = [];
-      for (let i = 0; i < filteredBoundaries.length - 1; i++) {
-        const bAIdx = filteredBoundaries[i];
-        const bBIdx = filteredBoundaries[i+1];
-        const midIdx = Math.round((bAIdx + bBIdx) / 2);
-        const centerPos = fullCurve[midIdx] || fullCurve[fullCurve.length - 1];
-
-        points.push({
-          x: centerPos.x,
-          y: centerPos.y,
-          fused: false,
-          boundaries: { a: bAIdx, b: bBIdx }
-        });
-      }
+      filteredPeaks.forEach(pIdx => {
+        const centerPos = fullCurve[pIdx];
+        if (centerPos) points.push({ x: centerPos.x, y: centerPos.y, fused: false });
+      });
 
       if (points.length < 10) {
         points = [];
-        const fallbackCount = 28;
+        const fallbackCount = 30;
         for (let i = 0; i < fallbackCount; i++) {
           const idx = Math.floor((i / (fallbackCount - 1)) * (fullCurve.length - 1));
           points.push({ x: fullCurve[idx].x, y: fullCurve[idx].y, fused: false });
         }
       }
 
-      lastProfileData = { raw: spineProfile, smooth: smoothed, boundaries: filteredBoundaries, centers: points };
+      lastProfileData = { raw: spineProfile, smooth: smoothed, boundaries: filteredPeaks, centers: points };
       renderGraphInspector();
       reclassifyRegions();
-      $('graphStatus').innerText = `${points.length} Vertebrae Detected`;
+      $('graphStatus').innerText = `${points.length} Detected`;
     }
 
     function renderGraphInspector() {
@@ -560,7 +635,7 @@
       lastProfileData.boundaries.forEach(bIdx => {
         const x = (bIdx / raw.length) * w;
         graphCtx.beginPath(); graphCtx.moveTo(x, 0); graphCtx.lineTo(x, h);
-        graphCtx.strokeStyle = 'rgba(234, 179, 8, 0.4)'; graphCtx.lineWidth = 1; graphCtx.stroke();
+        graphCtx.strokeStyle = 'rgba(234, 179, 8, 0.5)'; graphCtx.lineWidth = 1; graphCtx.stroke();
       });
     }
 
@@ -662,28 +737,28 @@
         if (pt.fused) color = '#eab308';
 
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, (isSelected ? 9 : 6) * k, 0, Math.PI * 2);
+        ctx.arc(pt.x, pt.y, (isSelected ? 8 : 5) * k, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.strokeStyle = isSelected ? '#ffffff' : '#07090e';
         ctx.lineWidth = 2 * k;
         ctx.fill(); ctx.stroke();
 
         const tagText = labels[i];
-        const lx = pt.x + 20 * k;
-        const ly = pt.y - 12 * k;
+        const lx = pt.x + 12 * k;
+        const ly = pt.y - 10 * k;
 
-        ctx.font = `bold ${11 * k}px sans-serif`;
+        ctx.font = `bold ${10 * k}px sans-serif`;
         const textWidth = ctx.measureText(tagText).width;
 
-        ctx.fillStyle = 'rgba(8, 12, 20, 0.9)';
+        ctx.fillStyle = 'rgba(8, 12, 20, 0.85)';
         ctx.strokeStyle = color;
         ctx.lineWidth = 1 * k;
         ctx.beginPath();
-        ctx.roundRect(lx - 2 * k, ly - 9 * k, textWidth + 6 * k, 13 * k, 3 * k);
+        ctx.roundRect(lx - 2 * k, ly - 8 * k, textWidth + 4 * k, 11 * k, 2 * k);
         ctx.fill(); ctx.stroke();
 
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(tagText, lx, ly + 1.5 * k);
+        ctx.fillText(tagText, lx, ly + 1 * k);
       });
 
       if (placementStep === 2 && calibStart && currentHoverPos) {
@@ -797,13 +872,13 @@
       saveState();
       placementStep = 1; spineNodes = [];
       setTool('draw');
-      showBanner('Click 5 to 20 nodes along the vertebral column from Head to Tail. Double-click or press Enter when done.');
+      showBanner('Click 3 to 10 nodes along the vertebral column. Double-click when finished.');
       render();
     }
 
     function finishSplinePlacement() {
       if (placementStep !== 1) return;
-      if (spineNodes.length < 2) return alert('Please place at least 2 spine nodes.');
+      if (spineNodes.length < 2) return alert('Place at least 2 spine nodes.');
       placementStep = 0; hideBanner();
       runBoundaryDetectionPipeline();
     }
@@ -821,7 +896,7 @@
 
     function startScaleCalibration() {
       placementStep = 2; calibStart = null;
-      showBanner('Click the start and end of the known scale bar on the image.');
+      showBanner('Click the start and end of the scale bar on the image.');
       setTool('draw');
     }
 
@@ -847,7 +922,7 @@
           data[i+1] = 255 - data[i+1];
           data[i+2] = 255 - data[i+2];
         }
-      } else if (mode === 'histeq' || mode === 'clahe') {
+      } else if (mode === 'histeq') {
         let hist = new Array(256).fill(0);
         for (let i = 0; i < data.length; i += 4) {
           let lum = Math.round(data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
@@ -880,6 +955,7 @@
       $('brightnessVal').innerText = b + '\%';$('contrastVal').innerText = c + '%';
       canvas.style.filter = `brightness(${b}%) contrast(${c}%)`;
     }
+
     function resetImageFilters() {
       $('brightnessSlider').value = 100; $('contrastSlider').value = 100;
       $('filterModeSelect').value = 'original';
@@ -887,9 +963,7 @@
     }
 
     function exportWorkspace() {
-      const ws = {
-        imageName, spineNodes, points, numWeberian, firstCaudalIndex, scale, panX, panY, pixelsPerMM
-      };
+      const ws = { imageName, spineNodes, points, numWeberian, firstCaudalIndex, scale, panX, panY, pixelsPerMM };
       downloadFile(JSON.stringify(ws, null, 2), `${imageName}_workspace.json`, 'application/json');
     }
 
@@ -909,10 +983,10 @@
           pixelsPerMM = ws.pixelsPerMM || 10.0;
           updateUIStats();
           render();
-          alert('Workspace restored successfully!');
-        } catch (err) { alert('Invalid workspace JSON file.'); }
+          alert('Workspace loaded successfully!');
+        } catch (err) { alert('Invalid workspace file.'); }
       };
-      reader.readAsDataURL(file);
+      reader.readAsText(file);
     }
 
     function exportCSV() {
@@ -922,7 +996,7 @@
         spineLenPx += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
       }
       const spineLenMM = spineLenPx / pixelsPerMM;
-      const meanSpacingMM = (spineLenMM / points.length);
+      const meanSpacingMM = (spineLenMM / (points.length || 1));
 
       let csv = `SPECIMEN_ID,TOTAL_COUNT,WEBERIAN_COUNT,PRECAUDAL_COUNT,CAUDAL_COUNT,FUSED_COUNT,SPINE_LENGTH_MM,MEAN_SPACING_MM\n`;
       csv += `${imageName},${points.length},${points.filter(p=>p.region==='weberian').length},${points.filter(p=>p.region==='precaudal').length},${points.filter(p=>p.region==='caudal').length},${points.filter(p=>p.fused).length},${spineLenMM.toFixed(2)},${meanSpacingMM.toFixed(2)}\n\n`;
