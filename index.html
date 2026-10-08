@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VertebraDigitizer Ultra v2.4 - Dynamic Specimen Analyzer</title>
+  <title>VertebraDigitizer Ultra v2.5 - Dynamic Specimen Analyzer</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
@@ -126,7 +126,7 @@
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-shield-check text-info fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v2.4 Fixed</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">v2.5 Complete</span></h5>
     </div>
     <div class="d-flex gap-2 align-items-center">
       <label class="btn btn-sm btn-outline-info mb-0">
@@ -158,8 +158,25 @@
         <button id="tabBtnGuide" class="tab-btn" onclick="switchTab('guide')"><i class="bi bi-book me-1"></i> Guide</button>
       </div>
 
-      <!-- TAB 1: Detector -->
+      <!-- TAB 1: Detector & Metadata -->
       <div id="tabSectionPipeline">
+        <!-- Specimen Metadata Input Panel -->
+        <div class="card bg-dark border-secondary p-3 mb-3">
+          <div class="fw-bold text-info fs-7 mb-2"><i class="bi bi-card-heading me-1"></i> Specimen Metadata</div>
+          <div class="mb-2">
+            <label class="form-label small mb-1 text-muted">Species / Catalog ID</label>
+            <input type="text" id="speciesInput" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. Danio rerio (USNM 12345)" value="Danio rerio">
+          </div>
+          <div>
+            <label class="form-label small mb-1 text-muted">Specimen Sex</label>
+            <select id="sexSelect" class="form-select form-select-sm bg-dark text-light border-secondary">
+              <option value="Unknown" selected>Unknown</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+        </div>
+
         <div class="card bg-dark border-primary p-3 mb-3">
           <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-diagram-3 me-1"></i> Dynamic Spine Detector</div>
           <p class="text-muted fs-7 mb-2">
@@ -256,16 +273,24 @@
           <i class="bi bi-arrows-expand me-1"></i> Calibrate Scale Bar
         </button>
         <div class="card bg-dark border-secondary p-2 fs-7">
-          <div>Scale Ratio: <strong id="ppmDisplay" class="text-info">10.00 px/mm</strong></div>
-          <div>Spine Length: <strong id="spineLenDisplay" class="text-warning">0.0 mm</strong></div>
+          <div class="mb-1">Scale Ratio: <strong id="ppmDisplay" class="text-info">10.00 px/mm</strong></div>
+          <div class="mb-1">Spine Length: <strong id="spineLenDisplay" class="text-warning">0.0 mm</strong></div>
+          <div>Mean Centra Spacing: <strong id="meanSpacingDisplay" class="text-success">0.00 mm</strong></div>
         </div>
       </div>
 
       <!-- TAB 4: Guide -->
       <div id="tabSectionGuide" style="display:none;">
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-journal-medical me-1"></i> Guide</h6>
-        <div class="card bg-dark border-secondary p-2 fs-7 text-muted">
-          Click anywhere on the image to add a centrum point manually. Right-click a point to delete it. Shift-Click a point to set it as C1.
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-journal-medical me-1"></i> Quick Shortcuts & Guide</h6>
+        <div class="card bg-dark border-secondary p-3 fs-7 text-muted">
+          <ul class="ps-3 mb-0">
+            <li class="mb-2"><strong>Add Centrum:</strong> Left-click anywhere on the image.</li>
+            <li class="mb-2"><strong>Move Centrum:</strong> Click and drag existing points.</li>
+            <li class="mb-2"><strong>Delete Centrum:</strong> Right-click on a point.</li>
+            <li class="mb-2"><strong>Set Caudal Start (C₁):</strong> Shift-click a point or use the C₁ slider.</li>
+            <li class="mb-2"><strong>Undo:</strong> Press <kbd class="bg-secondary text-light">Ctrl+Z</kbd> or click the undo button.</li>
+            <li><strong>Pan/Zoom:</strong> Use mouse wheel to zoom at cursor or switch to the Pan tool.</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -337,7 +362,9 @@
         points: JSON.parse(JSON.stringify(points)),
         spineNodes: JSON.parse(JSON.stringify(spineNodes)),
         firstCaudalIndex,
-        weberianCount: parseInt($('weberianCountInput').value) || 0
+        weberianCount: parseInt($('weberianCountInput').value) || 0,
+        species: $('speciesInput').value,
+        sex: $('sexSelect').value
       });
       if (undoStack.length > MAX_HISTORY) undoStack.shift();
     }
@@ -349,6 +376,8 @@
       spineNodes = prevState.spineNodes;
       firstCaudalIndex = prevState.firstCaudalIndex;
       $('weberianCountInput').value = prevState.weberianCount;
+      if (prevState.species !== undefined) $('speciesInput').value = prevState.species;
+      if (prevState.sex !== undefined) $('sexSelect').value = prevState.sex;
       selectedPointIdx = null;
       reclassifyRegions();
     }
@@ -434,7 +463,6 @@
       for (let i = 0; i < samples; i++) {
         const t = i / samples, t2 = t * t, t3 = t2 * t;
         const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
-        // Fixed y-coordinate interpolation formula bug
         const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
         pts.push({ x, y });
       }
@@ -582,6 +610,10 @@
 
     function updateUIStats() {
       const wCount = parseInt($('weberianCountInput').value) || 0;
+      
+      // Keep firstCaudalIndex within valid bounds
+      if (firstCaudalIndex > points.length + 1) firstCaudalIndex = Math.max(1, points.length + 1);
+
       const preCount = points.filter(p => p.region === 'precaudal').length;
       const cauCount = points.filter(p => p.region === 'caudal').length;
 
@@ -596,7 +628,6 @@
 
       const c1Slider = $('c1Slider');
       if (points.length > 0) {
-        // Enforce slider bounds to avoid region conflict with Weberian count
         c1Slider.min = wCount + 1;
         c1Slider.max = points.length + 1;
         if (firstCaudalIndex <= wCount) firstCaudalIndex = wCount + 1;
@@ -615,8 +646,11 @@
         spineLenPx += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
       }
       const spineLenMM = spineLenPx / pixelsPerMM;
+      const meanSpacingMM = points.length > 1 ? (spineLenMM / (points.length - 1)) : 0;
+
       $('spineLenDisplay').innerText = `${spineLenMM.toFixed(1)} mm`;
       $('ppmDisplay').innerText = `${pixelsPerMM.toFixed(2)} px/mm`;
+      if ($('meanSpacingDisplay'))$('meanSpacingDisplay').innerText = `${meanSpacingMM.toFixed(2)} mm`;
     }
 
     function getFormattedLabels() {
@@ -691,7 +725,13 @@
 
       ctx.translate(panX, panY);
       ctx.scale(scale, scale);
+
+      // Canvas-native brightness & contrast filters applied strictly to image
+      const b = $('brightnessSlider').value || 100;
+      const c = $('contrastSlider').value || 100;
+      ctx.filter = `brightness(${b}%) contrast(${c}%)`;
       ctx.drawImage(currentImage, 0, 0);
+      ctx.filter = 'none'; // Reset so UI vector drawings remain crisp and unaltered
 
       const k = 1 / scale;
 
@@ -789,7 +829,7 @@
       if (placementStep === 2) {
         if (!calibStart) { 
           calibStart = c; 
-          render(); // Immediate visual feedback
+          render();
         } else {
           const pxDist = Math.hypot(c.x - calibStart.x, c.y - calibStart.y);
           const mm = parseFloat($('scaleBarMM').value) || 10;
@@ -816,6 +856,15 @@
       if (isPanning) { panX = e.clientX - startPanX; panY = e.clientY - startPanY; render(); return; }
       const c = getCanvasCoords(e); currentHoverPos = c;
 
+      // Provide hover cursor feedback
+      if (activeTool === 'draw' && placementStep === 0) {
+        if (hitPoint(e) !== -1) {
+          canvas.style.cursor = 'move';
+        } else {
+          canvas.style.cursor = 'crosshair';
+        }
+      }
+
       if (draggingPoint !== null) { points[draggingPoint].x = c.x; points[draggingPoint].y = c.y; render(); return; }
       if (placementStep === 1 || placementStep === 2) render();
     });
@@ -833,6 +882,24 @@
       const idx = hitPoint(e);
       if (idx !== -1) { saveState(); points.splice(idx, 1); reclassifyRegions(); }
     });
+
+    // Smooth Cursor-Centric Mouse Wheel Zoom
+    wrapper.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      const newScale = Math.min(40, Math.max(0.05, scale * zoomFactor));
+
+      if (newScale !== scale) {
+        panX = mouseX - (mouseX - panX) * (newScale / scale);
+        panY = mouseY - (mouseY - panY) * (newScale / scale);
+        scale = newScale;
+        render();
+      }
+    }, { passive: false });
 
     function startSplinePlacement() {
       saveState(); placementStep = 1; spineNodes = []; setTool('draw');
@@ -875,7 +942,6 @@
           data[i] = 255 - data[i]; data[i+1] = 255 - data[i+1]; data[i+2] = 255 - data[i+2]; 
         }
       } else if (mode === 'histeq') {
-        // Full Cumulative Histogram Equalization
         const hist = new Uint32Array(256);
         const totalPixels = w * h;
         
@@ -917,11 +983,25 @@
     function updateImageFilters() {
       const b = $('brightnessSlider').value, c =$('contrastSlider').value;
       $('brightnessVal').innerText = b + '\%';$('contrastVal').innerText = c + '%';
-      canvas.style.filter = `brightness(${b}%) contrast(${c}%)`;
+      render(); // Redraw with new ctx.filter values
     }
 
     function exportWorkspace() {
-      const ws = { imageName, spineNodes, points, firstCaudalIndex, weberianCount: parseInt($('weberianCountInput').value) || 0, scale, panX, panY, pixelsPerMM };
+      const species = $('speciesInput').value.trim() || 'Unspecified';
+      const sex = $('sexSelect').value || 'Unknown';
+      const ws = {
+        imageName,
+        species,
+        sex,
+        spineNodes,
+        points,
+        firstCaudalIndex,
+        weberianCount: parseInt($('weberianCountInput').value) || 0,
+        scale,
+        panX,
+        panY,
+        pixelsPerMM
+      };
       downloadFile(JSON.stringify(ws, null, 2), `${imageName}_workspace.json`, 'application/json');
     }
 
@@ -932,31 +1012,46 @@
       reader.onload = evt => {
         try {
           const ws = JSON.parse(evt.target.result);
-          imageName = ws.imageName || 'specimen'; spineNodes = ws.spineNodes || []; points = ws.points || [];
+          imageName = ws.imageName || 'specimen';
+          if (ws.species !== undefined) $('speciesInput').value = ws.species;
+          if (ws.sex !== undefined) $('sexSelect').value = ws.sex;
+          spineNodes = ws.spineNodes || [];
+          points = ws.points || [];
           firstCaudalIndex = ws.firstCaudalIndex || 1;
           $('weberianCountInput').value = ws.weberianCount !== undefined ? ws.weberianCount : 0;
-          scale = ws.scale || 1; panX = ws.panX || 0; panY = ws.panY || 0; pixelsPerMM = ws.pixelsPerMM || 10.0;
+          scale = ws.scale || 1;
+          panX = ws.panX || 0;
+          panY = ws.panY || 0;
+          pixelsPerMM = ws.pixelsPerMM || 10.0;
           reclassifyRegions();
-        } catch (err) { alert('Invalid JSON file.'); }
+        } catch (err) {
+          alert('Invalid JSON file format.');
+        }
       };
       reader.readAsText(file);
     }
 
     function exportCSV() {
+      const species = $('speciesInput').value.trim() || 'Unspecified';
+      const sex = $('sexSelect').value || 'Unknown';
       const labels = getFormattedLabels();
       let spineLenPx = 0;
-      for (let i = 1; i < points.length; i++) { spineLenPx += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y); }
+      for (let i = 1; i < points.length; i++) {
+        spineLenPx += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
+      }
       const spineLenMM = spineLenPx / pixelsPerMM;
       const meanSpacingMM = points.length > 1 ? (spineLenMM / (points.length - 1)) : 0;
 
-      const wCount = points.filter(p=>p.region==='weberian').length;
-      const preCount = points.filter(p=>p.region==='precaudal').length;
-      const cauCount = points.filter(p=>p.region==='caudal').length;
+      const wCount = points.filter(p => p.region === 'weberian').length;
+      const preCount = points.filter(p => p.region === 'precaudal').length;
+      const cauCount = points.filter(p => p.region === 'caudal').length;
 
-      let csv = `SPECIMEN_ID,TOTAL_VERTEBRAE,WEBERIAN_W,PRECAUDAL_P,CAUDAL_C,SPINE_LENGTH_MM,MEAN_CENTRUM_SPACING_MM\n`;
-      csv += `${imageName},${points.length},${wCount},${preCount},${cauCount},${spineLenMM.toFixed(2)},${meanSpacingMM.toFixed(2)}\n\n`;
+      let csv = `SPECIMEN_ID,SPECIES,SEX,TOTAL_VERTEBRAE,WEBERIAN_W,PRECAUDAL_P,CAUDAL_C,SPINE_LENGTH_MM,MEAN_CENTRUM_SPACING_MM\n`;
+      csv += `"${imageName}","${species}","${sex}",${points.length},${wCount},${preCount},${cauCount},${spineLenMM.toFixed(2)},${meanSpacingMM.toFixed(2)}\n\n`;
       csv += `CENTRUM_INDEX,X_PX,Y_PX,REGION_TYPE,LABEL\n`;
-      points.forEach((pt, i) => { csv += `${i+1},${pt.x.toFixed(2)},${pt.y.toFixed(2)},${pt.region},${labels[i]}\n`; });
+      points.forEach((pt, i) => {
+        csv += `${i+1},${pt.x.toFixed(2)},${pt.y.toFixed(2)},${pt.region},${labels[i]}\n`;
+      });
 
       downloadFile(csv, `${imageName}_morphometrics.csv`, 'text/csv');
     }
@@ -964,7 +1059,8 @@
     function downloadFile(content, fileName, mimeType) {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
-      a.download = fileName; a.click();
+      a.download = fileName;
+      a.click();
     }
 
     function switchTab(tab) {
@@ -994,7 +1090,11 @@
       wrapper.className = tool === 'pan' ? 'canvas-wrapper mode-pan' : 'canvas-wrapper mode-draw';
     }
 
-    window.addEventListener('resize', () => { canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight; render(); });
+    window.addEventListener('resize', () => { 
+      canvas.width = wrapper.clientWidth; 
+      canvas.height = wrapper.clientHeight; 
+      resetView(); 
+    });
     canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight;
   </script>
 </body>
