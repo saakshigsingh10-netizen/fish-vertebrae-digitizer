@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CichlidVertebraDigitizer AI - Calibrated Model</title>
+  <title>VertebraDigitizer Raw AI - Anatomical Radiograph Analyzer</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
     :root {
       --v1-color: #3b82f6;     /* V1 Atlas (Blue Box) */
-      --pre-color: #ef4444;    /* Precaudal P1+ (Red Dots) */
-      --cau-color: #06b6d4;    /* Caudal C1+ (Cyan/Blue Dots) */
+      --pre-color: #ef4444;    /* Precaudal P1+ (Red) */
+      --cau-color: #06b6d4;    /* Caudal C1+ (Cyan) */
+      --w-color: #a855f7;      /* Weberian (if applicable) */
       --bg-dark: #07090e;
       --panel-bg: rgba(13, 17, 25, 0.96);
       --border-color: rgba(255, 255, 255, 0.12);
@@ -79,11 +80,12 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-width: 70px;
+      min-width: 65px;
     }
     .counter-badge .val { font-size: 1.35rem; font-weight: 700; line-height: 1; }
     .counter-badge .lbl { font-size: .65rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
     .val-v1 { color: var(--v1-color); }
+    .val-w { color: var(--w-color); }
     .val-pre { color: var(--pre-color); } 
     .val-cau { color: var(--cau-color); } 
     .val-total { color: #38bdf8; }
@@ -115,6 +117,14 @@
     .table-dark-custom { font-size: 0.72rem; background: transparent; color: #cbd5e1; }
     .table-dark-custom th { color: #38bdf8; border-color: var(--border-color); }
     .table-dark-custom td { border-color: rgba(255,255,255,0.05); }
+
+    .graph-panel {
+      background: #0b0f17;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
@@ -122,11 +132,11 @@
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-shield-check text-info fs-4"></i>
-      <h5 class="m-0 fw-bold">CichlidDigitizer <span class="badge bg-primary fs-6 ms-2">v3.1 Production</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">Raw X-Ray Engine</span></h5>
     </div>
     <div class="d-flex gap-2 align-items-center">
       <label class="btn btn-sm btn-outline-info mb-0">
-        <i class="bi bi-folder2-open me-1"></i> Open Image
+        <i class="bi bi-folder2-open me-1"></i> Open Raw X-Ray
         <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImageUpload(event)">
       </label>
       <button class="btn btn-sm btn-outline-secondary" onclick="generateSampleRadiograph()">
@@ -154,77 +164,108 @@
         <button id="tabBtnCalib" class="tab-btn" onclick="switchTab('calib')"><i class="bi bi-rulers me-1"></i> Scale</button>
       </div>
 
-      <!-- TAB 1: Detector -->
+      <!-- TAB 1: Detector on Raw Scans -->
       <div id="tabSectionPipeline">
         <div class="card bg-dark border-secondary p-3 mb-3">
-          <div class="fw-bold text-info fs-7 mb-2"><i class="bi bi-card-heading me-1"></i> Specimen Identification</div>
+          <div class="fw-bold text-info fs-7 mb-2"><i class="bi bi-card-heading me-1"></i> Specimen Metadata</div>
           <div class="row g-2">
             <div class="col-8">
-              <label class="text-muted small">Specimen ID / Catalog #</label>
-              <input type="text" id="specimenIdInput" class="form-control form-control-sm bg-dark text-light border-secondary" value="F1-F-1">
+              <label class="text-muted small">Species / Catalog ID</label>
+              <input type="text" id="speciesInput" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. Cichlidae sp." value="Cichlidae sp.">
             </div>
             <div class="col-4">
               <label class="text-muted small">Sex</label>
               <select id="sexSelect" class="form-select form-select-sm bg-dark text-light border-secondary">
-                <option value="Female" selected>Female (F)</option>
+                <option value="Unknown" selected>Unknown</option>
+                <option value="Female">Female (F)</option>
                 <option value="Male">Male (M)</option>
-                <option value="Unknown">Unknown</option>
               </select>
             </div>
           </div>
         </div>
 
-        <!-- Direct Color Extractor for Annotated Scans -->
-        <div class="card bg-dark border-info p-3 mb-3">
-          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-palette2 me-1"></i> Auto-Extract from Annotated Scans</div>
+        <div class="card bg-dark border-primary p-3 mb-3">
+          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-activity me-1"></i> Raw Spine Periodicity Auto-Detector</div>
           <p class="text-muted fs-7 mb-2">
-            Scans the radiograph directly to extract the blue V₁ box, red precaudal dots, and cyan caudal dots.
+            1. Draw spine curve from <strong>Atlas ($V_1$, skull base)</strong> to the <strong>caudal fin base</strong>.<br>
+            2. Auto-Detect uses spatial periodicity to locate each centrum on raw grayscale images without dots.
           </p>
-          <button class="btn btn-sm btn-info fw-bold w-100" onclick="extractColorLandmarksFromScan()">
-            <i class="bi bi-bullseye me-1"></i> Auto-Detect Color Annotations
+          <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-sm btn-primary fw-bold flex-grow-1" onclick="startSplinePlacement()">
+              <i class="bi bi-vector-pen me-1"></i> 1. Draw Spine Path
+            </button>
+            <button class="btn btn-sm btn-success fw-bold flex-grow-1" onclick="runRawSpineCentrumDetector()">
+              <i class="bi bi-magic me-1"></i> 2. Auto-Detect Centra
+            </button>
+          </div>
+          <button class="btn btn-sm btn-outline-warning w-100 fs-7" onclick="flipPointOrder()">
+            <i class="bi bi-arrow-down-up me-1"></i> Flip Column Direction (Head <-> Tail)
           </button>
         </div>
 
-        <!-- Raw Image Curve Digitizer -->
+        <!-- Density & Pitch Controls for Raw Images -->
         <div class="card bg-dark border-secondary p-3 mb-3">
-          <div class="fw-bold text-light fs-7 mb-1"><i class="bi bi-diagram-3 me-1"></i> Spine Curve Profiler (Raw Scans)</div>
-          <p class="text-muted fs-7 mb-2">
-            Draw spine path starting from Atlas (inferior/bottom) to caudal peduncle (superior/top).
-          </p>
-          <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-primary fw-bold flex-grow-1" onclick="startSplinePlacement()">
-              <i class="bi bi-vector-pen me-1"></i> Draw Spine
-            </button>
-            <button class="btn btn-sm btn-outline-success fw-bold flex-grow-1" onclick="runSpineProfileDetection()">
-              <i class="bi bi-activity me-1"></i> Trace Density
-            </button>
+          <div class="fw-bold text-warning fs-7 mb-2"><i class="bi bi-sliders2 me-1"></i> Radiograph Centra Pitch Settings</div>
+          <div class="mb-2">
+            <div class="d-flex justify-content-between fs-7 mb-1">
+              <span>Expected Vertebra Count:</span>
+              <span id="targetCountVal" class="fw-bold text-info">31</span>
+            </div>
+            <input type="range" class="form-range" id="targetCountSlider" min="15" max="75" value="31" oninput="$('targetCountVal').innerText=this.value; runRawSpineCentrumDetector();">
+            <div class="text-muted fs-7">Sets target harmonic periodicity along the drawn spine curve.</div>
           </div>
+          <div class="mb-1">
+            <div class="d-flex justify-content-between fs-7 mb-1">
+              <span>Transverse Strip Sampling Width:</span>
+              <span id="stripWidthVal" class="fw-bold text-info">24 px</span>
+            </div>
+            <input type="range" class="form-range" id="stripWidthSlider" min="10" max="60" value="24" oninput="$('stripWidthVal').innerText=this.value+' px'; runRawSpineCentrumDetector();">
+            <div class="text-muted fs-7">Averages pixel density perpendicular to spine to bypass ribs.</div>
+          </div>
+        </div>
+
+        <div class="graph-panel">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fs-7 text-info fw-bold"><i class="bi bi-graph-up me-1"></i> 1D Vertebral Radiodensity Signal</span>
+            <span class="badge bg-secondary fs-7" id="graphStatus">Ready</span>
+          </div>
+          <canvas id="graphCanvas" width="380" height="90" style="width:100%; height:90px; background:#020305; border-radius:4px;"></canvas>
         </div>
 
         <!-- Regional Classification -->
         <div class="card bg-dark border-secondary p-3 mb-3">
-          <div class="fw-bold text-warning fs-7 mb-2"><i class="bi bi-sliders me-1"></i> Regional Classification</div>
+          <div class="fw-bold text-light fs-7 mb-2"><i class="bi bi-diagram-2 me-1"></i> Anatomical Regions</div>
+          
+          <div class="mb-2">
+            <label class="form-label small mb-1 fw-bold" style="color:var(--w-color)">Weberian Count ($W$)</label>
+            <input type="number" id="weberianCountInput" min="0" max="6" value="0" class="form-control form-control-sm bg-dark text-light border-secondary" onchange="reclassifyRegions()">
+            <div class="text-muted fs-7">Set to 0 for Cichlids/Percomorphs; set to 4 for Otophysans.</div>
+          </div>
+
           <div class="mb-2">
             <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="fs-7 text-danger fw-bold">First Caudal Centrum ($C_1$)</span>
+              <span class="fs-7 text-danger fw-bold">First Caudal Centrum Index ($C_1$)</span>
               <span id="c1IndexDisplay" class="badge bg-warning text-dark fw-bold">Centrum #15</span>
             </div>
             <input type="range" class="form-range" id="c1Slider" min="2" max="35" value="15" oninput="updateRegionSplits()">
+            <div class="text-muted fs-7">Starts immediately behind posterior gas bladder cavity.</div>
           </div>
 
-          <div class="d-flex justify-content-between fs-7 pt-2 border-top border-secondary text-center">
-            <div><span class="text-primary fw-bold">Atlas (V₁):</span> <strong id="cntV1">1</strong></div>
-            <div><span class="text-danger fw-bold">Precaudal:</span> <strong id="cntPre">13</strong></div>
-            <div><span class="text-info fw-bold">Caudal:</span> <strong id="cntCau">17</strong></div>
+          <div class="d-flex justify-content-between fs-7 pt-2 border-top border-secondary text-center mt-2">
+            <div><span class="text-primary fw-bold">V1:</span> <strong id="cntV1">1</strong></div>
+            <div id="wCountBox" style="display:none;"><span style="color:var(--w-color)" class="fw-bold">W:</span> <strong id="cntW">0</strong></div>
+            <div><span class="text-danger fw-bold">Pre:</span> <strong id="cntPre">13</strong></div>
+            <div><span class="text-info fw-bold">Cau:</span> <strong id="cntCau">17</strong></div>
           </div>
         </div>
 
         <div class="card bg-dark border-secondary p-3 mb-3 fs-7 text-muted">
-          <div class="fw-bold text-light mb-1"><i class="bi bi-mouse me-1"></i> Manual Adjustments</div>
-          <div>• <strong>Left Click:</strong> Add new centrum.</div>
-          <div>• <strong>Drag:</strong> Move existing landmark.</div>
-          <div>• <strong>Right Click:</strong> Delete landmark.</div>
-          <div>• <strong>Shift + Click:</strong> Assign selected centrum as $C_1$.</div>
+          <div class="fw-bold text-light mb-1"><i class="bi bi-mouse me-1"></i> Manual Correction Controls</div>
+          <div>• <strong>Left Click Canvas:</strong> Manually place a missing centrum.</div>
+          <div>• <strong>Drag Dot:</strong> Refine centrum position.</div>
+          <div>• <strong>Right Click Dot:</strong> Delete false detection.</div>
+          <div>• <strong>Shift + Click Dot:</strong> Designate selected centrum as $C_1$.</div>
+          <div>• <strong>Ctrl + Z:</strong> Undo any edit.</div>
         </div>
       </div>
 
@@ -251,13 +292,13 @@
 
       <!-- TAB 3: Image Adjustments -->
       <div id="tabSectionDisplay" style="display:none;">
-        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-filter-circle me-1"></i> Display Filters</h6>
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-filter-circle me-1"></i> Radiograph Enhancement</h6>
         <div class="mb-3">
           <label class="form-label small mb-1">Filter View Mode</label>
           <select id="filterModeSelect" class="form-select form-select-sm bg-dark text-light border-secondary" onchange="applyImagePreprocessing()">
             <option value="original">Original Radiograph</option>
-            <option value="histeq">Histogram Equalized</option>
-            <option value="inverted">Inverted Radiograph</option>
+            <option value="histeq">Histogram Equalized (CLAHE)</option>
+            <option value="inverted">Inverted X-Ray (Negative)</option>
           </select>
         </div>
         <div class="mb-3">
@@ -269,11 +310,12 @@
           <input type="range" class="form-range" id="contrastSlider" min="20" max="300" value="100" oninput="updateImageFilters()">
         </div>
         <div class="mb-3">
-          <label class="form-label small mb-1">Label Mode</label>
+          <label class="form-label small mb-1">Label Position</label>
           <select id="labelSideSelect" class="form-select form-select-sm bg-dark text-light border-secondary" onchange="render()">
             <option value="right" selected>Perpendicular Right</option>
             <option value="left">Perpendicular Left</option>
-            <option value="none">Points Only (No Labels)</option>
+            <option value="alternate">Alternate Sides</option>
+            <option value="none">Points Only (No Text Labels)</option>
           </select>
         </div>
       </div>
@@ -284,10 +326,10 @@
         <div class="mb-3">
           <label class="form-label small mb-1">Known Scale Length (mm)</label>
           <input type="number" id="scaleBarMM" class="form-control form-control-sm bg-dark text-light border-secondary" value="50" step="1">
-          <div class="text-muted fs-7 mt-1">Cichlid calibration bar: 50.0 mm.</div>
+          <div class="text-muted fs-7 mt-1">Typical radiograph scale: 50.0 mm.</div>
         </div>
         <button class="btn btn-sm btn-outline-info w-100 mb-3" onclick="startScaleCalibration()">
-          <i class="bi bi-arrows-expand me-1"></i> Calibrate 50 mm Bar
+          <i class="bi bi-arrows-expand me-1"></i> Calibrate Scale Bar
         </button>
         <div class="card bg-dark border-secondary p-2 fs-7">
           <div class="mb-1">Scale Ratio: <strong id="ppmDisplay" class="text-info">10.00 px/mm</strong></div>
@@ -315,7 +357,7 @@
       <div class="ai-dock">
         <div class="counter-badge">
           <span class="val val-v1" id="dockV1Count">1</span>
-          <span class="lbl">V1 (Atlas)</span>
+          <span class="lbl">V1 Atlas</span>
         </div>
         <div class="counter-badge">
           <span class="val val-pre" id="dockPreCount">13</span>
@@ -337,11 +379,12 @@
 
   <script>
     const $ = id => document.getElementById(id);
-    const canvas = $('imageCanvas'), ctx = canvas.getContext('2d'), wrapper =$('canvasWrapper');
+    const canvas = $('imageCanvas'), ctx = canvas.getContext('2d'), wrapper = $('canvasWrapper');
     const procCanvas = $('processingCanvas'), procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+    const graphCanvas = $('graphCanvas'), graphCtx = graphCanvas.getContext('2d');
     const UI_SEL = '.ai-dock, .floating-controls';
 
-    let currentImage = null, imageName = 'F1-F-1';
+    let currentImage = null, imageName = 'raw_cichlid_specimen';
     let rawImageBitmap = null;
     let activeTool = 'draw';
     let points = []; 
@@ -354,6 +397,7 @@
 
     let undoStack = [];
     const MAX_HISTORY = 50;
+    let lastProfileData = null;
 
     window.addEventListener('load', () => { generateSampleRadiograph(); });
 
@@ -362,7 +406,8 @@
         points: JSON.parse(JSON.stringify(points)),
         spineNodes: JSON.parse(JSON.stringify(spineNodes)),
         firstCaudalIndex,
-        specimenId: $('specimenIdInput').value,
+        weberianCount: parseInt($('weberianCountInput').value) || 0,
+        species: $('speciesInput').value,
         sex: $('sexSelect').value
       });
       if (undoStack.length > MAX_HISTORY) undoStack.shift();
@@ -374,7 +419,8 @@
       points = prevState.points;
       spineNodes = prevState.spineNodes;
       firstCaudalIndex = prevState.firstCaudalIndex;
-      if (prevState.specimenId) $('specimenIdInput').value = prevState.specimenId;
+      $('weberianCountInput').value = prevState.weberianCount || 0;
+      if (prevState.species) $('speciesInput').value = prevState.species;
       if (prevState.sex) $('sexSelect').value = prevState.sex;
       selectedPointIdx = null;
       reclassifyRegions();
@@ -387,6 +433,14 @@
       reclassifyRegions();
     }
 
+    function flipPointOrder() {
+      if (points.length < 2) return;
+      saveState();
+      points.reverse();
+      reclassifyRegions();
+    }
+
+    // Realistic pure raw grayscale radiograph generator (NO pre-drawn colored dots)
     function generateSampleRadiograph() {
       const w = 600, h = 1200;
       const offscreen = document.createElement('canvas');
@@ -394,36 +448,49 @@
       const oCtx = offscreen.getContext('2d');
 
       const bg = oCtx.createRadialGradient(w/2, h/2, 50, w/2, h/2, 600);
-      bg.addColorStop(0, '#161e2e'); bg.addColorStop(1, '#04060a');
+      bg.addColorStop(0, '#1a2232'); bg.addColorStop(1, '#05070c');
       oCtx.fillStyle = bg; oCtx.fillRect(0, 0, w, h);
 
-      // Conserved 31 cichlid vertebrae: Head at bottom (Y=1080), Tail at top (Y=180)
+      // Body soft tissue outline
+      oCtx.beginPath();
+      oCtx.ellipse(300, 600, 140, 480, 0, 0, Math.PI * 2);
+      oCtx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      oCtx.fill();
+
+      // Gas bladder radiolucency (dark region in abdomen)
+      oCtx.beginPath();
+      oCtx.ellipse(330, 720, 45, 110, 0.2, 0, Math.PI * 2);
+      oCtx.fillStyle = '#080c14';
+      oCtx.fill();
+
+      // Pure raw vertebral column without any colored dots
       const numVerts = 31;
-      const startX = 300, startY = 1080, endX = 300, endY = 180;
+      const startX = 300, startY = 1050, endX = 300, endY = 180;
 
       for (let i = 0; i < numVerts; i++) {
         const t = i / (numVerts - 1);
-        const vx = startX + Math.sin(t * Math.PI * 2) * 15;
+        const vx = startX + Math.sin(t * Math.PI * 2) * 12;
         const vy = startY + t * (endY - startY);
-        const vertNum = i + 1;
 
-        if (vertNum === 1) {
-          oCtx.strokeStyle = '#3b82f6';
-          oCtx.strokeRect(vx - 8, vy - 8, 16, 16);
-        } else if (vertNum < 15) {
-          oCtx.beginPath();
-          oCtx.arc(vx, vy, 4.5, 0, Math.PI * 2);
-          oCtx.fillStyle = '#ef4444';
-          oCtx.fill();
-        } else {
-          oCtx.beginPath();
-          oCtx.arc(vx, vy, 4.5, 0, Math.PI * 2);
-          oCtx.fillStyle = '#06b6d4';
-          oCtx.fill();
-        }
+        // Centrum core bone
+        oCtx.beginPath();
+        oCtx.roundRect(vx - 11, vy - 7, 22, 14, 3);
+        oCtx.fillStyle = 'rgba(235, 245, 255, 0.65)';
+        oCtx.fill();
+        oCtx.strokeStyle = 'rgba(18, 25, 38, 0.9)';
+        oCtx.lineWidth = 2;
+        oCtx.stroke();
+
+        // Arches / Spines
+        oCtx.beginPath();
+        oCtx.moveTo(vx - 11, vy);
+        oCtx.lineTo(vx - 32, vy + (t < 0.45 ? 24 : -18));
+        oCtx.strokeStyle = 'rgba(200, 220, 245, 0.22)';
+        oCtx.lineWidth = 1.5;
+        oCtx.stroke();
       }
 
-      // Vertical 50mm calibration scale bar
+      // Vertical 50mm white calibration scale bar
       oCtx.fillStyle = '#ffffff';
       oCtx.fillRect(90, 500, 6, 200);
 
@@ -432,8 +499,10 @@
         currentImage = img; rawImageBitmap = img;
         procCanvas.width = w; procCanvas.height = h;
         procCtx.drawImage(img, 0, 0);
+        spineNodes = [{ x: 300, y: 1050 }, { x: 300, y: 620 }, { x: 300, y: 180 }];
+        firstCaudalIndex = 15;
         resetView();
-        extractColorLandmarksFromScan();
+        runRawSpineCentrumDetector();
       };
       img.src = offscreen.toDataURL();
     }
@@ -441,7 +510,8 @@
     function handleImageUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
-      imageName = file.name.replace(/\.[^.]+$/, '');$('specimenIdInput').value = imageName;
+      imageName = file.name.replace(/\.[^.]+$/, '');
+      $('speciesInput').value = imageName;
       if (imageName.includes('-M-') || imageName.includes('_M_')) $('sexSelect').value = 'Male';
       else if (imageName.includes('-F-') || imageName.includes('_F_')) $('sexSelect').value = 'Female';
 
@@ -454,133 +524,18 @@
           procCanvas.width = img.width; procCanvas.height = img.height;
           procCtx.drawImage(img, 0, 0);
           resetView();
-          extractColorLandmarksFromScan();
+          
+          // Seed standard cranial-to-caudal spine guide
+          spineNodes = [
+            { x: img.width * 0.49, y: img.height * 0.82 },
+            { x: img.width * 0.50, y: img.height * 0.52 },
+            { x: img.width * 0.51, y: img.height * 0.18 }
+          ];
+          runRawSpineCentrumDetector();
         };
         img.src = evt.target.result;
       };
       reader.readAsDataURL(file);
-    }
-
-    // Direct Computer Vision Extraction of Annotated Landmarks (Red, Cyan, Blue)
-    function extractColorLandmarksFromScan() {
-      if (!currentImage) return;
-      saveState();
-
-      const imgW = currentImage.width, imgH = currentImage.height;
-      procCanvas.width = imgW; procCanvas.height = imgH;
-      procCtx.drawImage(rawImageBitmap || currentImage, 0, 0);
-
-      const imgData = procCtx.getImageData(0, 0, imgW, imgH);
-      const data = imgData.data;
-
-      // Coordinate accumulator buffers
-      let redPixels = [], cyanPixels = [], bluePixels = [];
-
-      // Scan every 2nd pixel for performance
-      for (let y = 0; y < imgH; y += 2) {
-        for (let x = 0; x < imgW; x += 2) {
-          const idx = (y * imgW + x) * 4;
-          const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-
-          // Red Precaudal Dot Detection
-          if (r > 130 && r > g * 1.5 && r > b * 1.5) {
-            redPixels.push({ x, y });
-          }
-          // Cyan Caudal Dot Detection
-          else if (g > 110 && b > 110 && r < g * 0.75 && Math.abs(g - b) < 60) {
-            cyanPixels.push({ x, y });
-          }
-          // Blue V1 Atlas Square Detection
-          else if (b > 130 && b > r * 1.4 && b > g * 1.1) {
-            bluePixels.push({ x, y });
-          }
-        }
-      }
-
-      function clusterCentroids(pixels, distThresh = 15) {
-        let clusters = [];
-        pixels.forEach(p => {
-          let matched = clusters.find(c => Math.hypot(c.x - p.x, c.y - p.y) < distThresh);
-          if (matched) {
-            matched.sumX += p.x;
-            matched.sumY += p.y;
-            matched.count++;
-            matched.x = matched.sumX / matched.count;
-            matched.y = matched.sumY / matched.count;
-          } else {
-            clusters.push({ x: p.x, y: p.y, sumX: p.x, sumY: p.y, count: 1 });
-          }
-        });
-        return clusters.filter(c => c.count >= 2);
-      }
-
-      let detectedV1 = clusterCentroids(bluePixels, 20);
-      let detectedPre = clusterCentroids(redPixels, 14);
-      let detectedCau = clusterCentroids(cyanPixels, 14);
-
-      if (detectedPre.length === 0 && detectedCau.length === 0) {
-        // Fallback to spine profiling if scan is unannotated
-        runSpineProfileDetection();
-        return;
-      }
-
-      // Sort inferior (head at bottom) to superior (tail at top)
-      detectedPre.sort((a, b) => b.y - a.y);
-      detectedCau.sort((a, b) => b.y - a.y);
-
-      points = [];
-
-      // Atlas V1
-      if (detectedV1.length > 0) {
-        detectedV1.sort((a, b) => b.y - a.y);
-        points.push({ x: detectedV1[0].x, y: detectedV1[0].y, region: 'v1' });
-      } else if (detectedPre.length > 0) {
-        const firstP = detectedPre.shift();
-        points.push({ x: firstP.x, y: firstP.y, region: 'v1' });
-      }
-
-      // Precaudal
-      detectedPre.forEach(p => points.push({ x: p.x, y: p.y, region: 'precaudal' }));
-      firstCaudalIndex = points.length + 1;
-
-      // Caudal
-      detectedCau.forEach(p => points.push({ x: p.x, y: p.y, region: 'caudal' }));
-
-      reclassifyRegions();
-    }
-
-    // Grayscale Density Profiler for Unannotated Raw Scans
-    function runSpineProfileDetection() {
-      if (!currentImage) return;
-      saveState();
-
-      if (spineNodes.length < 2) {
-        spineNodes = [
-          { x: currentImage.width * 0.49, y: currentImage.height * 0.82 },
-          { x: currentImage.width * 0.50, y: currentImage.height * 0.52 },
-          { x: currentImage.width * 0.51, y: currentImage.height * 0.18 }
-        ];
-      }
-
-      if (spineNodes[0].y < spineNodes[spineNodes.length - 1].y) {
-        spineNodes.reverse();
-      }
-
-      const fullCurve = generateSmoothSpline(spineNodes);
-      const targetCount = 31;
-      points = [];
-
-      for (let i = 0; i < targetCount; i++) {
-        const idx = Math.round((i / (targetCount - 1)) * (fullCurve.length - 1));
-        const pt = fullCurve[idx];
-        points.push({
-          x: pt.x,
-          y: pt.y,
-          region: i === 0 ? 'v1' : i < 14 ? 'precaudal' : 'caudal'
-        });
-      }
-      firstCaudalIndex = 15;
-      reclassifyRegions();
     }
 
     function catmullRomSpline(p0, p1, p2, p3, samples = 35) {
@@ -605,12 +560,157 @@
       return fullCurve;
     }
 
+    // Regularized Spatial-Periodicity Detector for Raw Grayscale Radiographs
+    function runRawSpineCentrumDetector() {
+      if (!currentImage || spineNodes.length < 2) return;
+      saveState();
+
+      // Ensure orientation is cranial (inferior/bottom) -> caudal (superior/top)
+      if (spineNodes[0].y < spineNodes[spineNodes.length - 1].y) {
+        spineNodes.reverse();
+      }
+
+      const fullCurve = generateSmoothSpline(spineNodes);
+      const imgW = currentImage.width, imgH = currentImage.height;
+      
+      if (procCanvas.width !== imgW || procCanvas.height !== imgH) {
+        procCanvas.width = imgW; procCanvas.height = imgH;
+        procCtx.drawImage(currentImage, 0, 0);
+      }
+
+      const imgData = procCtx.getImageData(0, 0, imgW, imgH);
+      const data = imgData.data;
+
+      const stripWidth = parseInt($('stripWidthSlider').value) || 24;
+      const targetCount = parseInt($('targetCountSlider').value) || 31;
+
+      // Extract 1D density profile normal to the spine curve
+      let spineProfile = [];
+      for (let i = 0; i < fullCurve.length; i++) {
+        let dx = 0, dy = 0;
+        if (i === 0) { dx = fullCurve[1].x - fullCurve[0].x; dy = fullCurve[1].y - fullCurve[0].y; }
+        else if (i === fullCurve.length - 1) { dx = fullCurve[i].x - fullCurve[i-1].x; dy = fullCurve[i].y - fullCurve[i-1].y; }
+        else { dx = fullCurve[i+1].x - fullCurve[i-1].x; dy = fullCurve[i+1].y - fullCurve[i-1].y; }
+        
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len, ny = dx / len;
+
+        let stripSum = 0, sampleCount = 0;
+        for (let w = -stripWidth/2; w <= stripWidth/2; w += 2) {
+          const sx = Math.round(fullCurve[i].x + nx * w);
+          const sy = Math.round(fullCurve[i].y + ny * w);
+          if (sx >= 0 && sx < imgW && sy >= 0 && sy < imgH) {
+            const idx = (sy * imgW + sx) * 4;
+            stripSum += (data[idx] * 0.299 + data[idx+1] * 0.587 + data[idx+2] * 0.114);
+            sampleCount++;
+          }
+        }
+        spineProfile.push(sampleCount > 0 ? stripSum / sampleCount : 0);
+      }
+
+      // 1D Gaussian smooth
+      let smoothed = [];
+      const kSpan = 5;
+      for (let i = 0; i < spineProfile.length; i++) {
+        let sum = 0, count = 0;
+        for (let k = -kSpan; k <= kSpan; k++) {
+          if (i + k >= 0 && i + k < spineProfile.length) {
+            sum += spineProfile[i + k]; count++;
+          }
+        }
+        smoothed.push(sum / count);
+      }
+
+      // Spacing-constrained windowed peak picking
+      const stepPitch = (fullCurve.length - 1) / (targetCount - 1);
+      const searchRadius = Math.round(stepPitch * 0.42);
+
+      points = [];
+      for (let k = 0; k < targetCount; k++) {
+        const nominalIdx = Math.round(k * stepPitch);
+        const winStart = Math.max(0, nominalIdx - searchRadius);
+        const winEnd = Math.min(fullCurve.length - 1, nominalIdx + searchRadius);
+
+        let bestIdx = nominalIdx;
+        let maxVal = -Infinity;
+        for (let j = winStart; j <= winEnd; j++) {
+          if (smoothed[j] > maxVal) {
+            maxVal = smoothed[j];
+            bestIdx = j;
+          }
+        }
+
+        const rawPt = fullCurve[bestIdx];
+        // 2D sub-pixel centroid snap to local bone density core
+        const refinedPt = refineCentroid2D(rawPt, data, imgW, imgH);
+        points.push(refinedPt);
+      }
+
+      lastProfileData = { raw: spineProfile, smooth: smoothed };
+      renderGraphInspector();
+      reclassifyRegions();
+      $('graphStatus').innerText = `${points.length} Centra Digitized`;
+    }
+
+    function refineCentroid2D(pt, data, imgW, imgH, r = 6) {
+      let sumX = 0, sumY = 0, sumW = 0;
+      const cx = Math.round(pt.x), cy = Math.round(pt.y);
+
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const x = cx + dx, y = cy + dy;
+          if (x >= 0 && x < imgW && y >= 0 && y < imgH) {
+            const idx = (y * imgW + x) * 4;
+            const lum = (data[idx] * 0.299 + data[idx+1] * 0.587 + data[idx+2] * 0.114);
+            const w = lum + 1;
+            sumX += x * w; sumY += y * w; sumW += w;
+          }
+        }
+      }
+      return sumW > 0 ? { x: sumX / sumW, y: sumY / sumW } : { x: pt.x, y: pt.y };
+    }
+
+    function renderGraphInspector() {
+      if (!lastProfileData) return;
+      const w = graphCanvas.width, h = graphCanvas.height;
+      graphCtx.clearRect(0, 0, w, h);
+      const raw = lastProfileData.raw;
+      const smooth = lastProfileData.smooth;
+      if (!smooth || !smooth.length) return;
+      const maxVal = Math.max(...raw, 255);
+
+      graphCtx.beginPath();
+      raw.forEach((val, i) => {
+        const x = (i / (raw.length - 1)) * w;
+        const y = h - (val / maxVal) * h * 0.8 - 5;
+        if (i === 0) graphCtx.moveTo(x, y); else graphCtx.lineTo(x, y);
+      });
+      graphCtx.strokeStyle = '#475569'; graphCtx.lineWidth = 1; graphCtx.stroke();
+
+      graphCtx.beginPath();
+      smooth.forEach((val, i) => {
+        const x = (i / (smooth.length - 1)) * w;
+        const y = h - (val / maxVal) * h * 0.8 - 5;
+        if (i === 0) graphCtx.moveTo(x, y); else graphCtx.lineTo(x, y);
+      });
+      graphCtx.strokeStyle = '#00f2fe'; graphCtx.lineWidth = 1.5; graphCtx.stroke();
+    }
+
     function reclassifyRegions() {
+      const wCount = parseInt($('weberianCountInput').value) || 0;
+      $('wCountBox').style.display = wCount > 0 ? 'block' : 'none';
+
       points.forEach((pt, idx) => {
         const vertNum = idx + 1;
-        if (vertNum === 1) pt.region = 'v1';
-        else if (vertNum < firstCaudalIndex) pt.region = 'precaudal';
-        else pt.region = 'caudal';
+        if (vertNum === 1 && wCount === 0) {
+          pt.region = 'v1'; // Atlas anchor
+        } else if (vertNum <= wCount) {
+          pt.region = 'weberian';
+        } else if (vertNum < firstCaudalIndex) {
+          pt.region = 'precaudal';
+        } else {
+          pt.region = 'caudal';
+        }
       });
       updateUIStats();
       updateMetricsTable();
@@ -624,6 +724,7 @@
     }
 
     function updateUIStats() {
+      const wCount = parseInt($('weberianCountInput').value) || 0;
       if (firstCaudalIndex > points.length + 1) firstCaudalIndex = Math.max(2, points.length + 1);
 
       const v1Count = points.filter(p => p.region === 'v1').length;
@@ -636,12 +737,13 @@
       $('dockTotalCount').innerText = points.length;
 
       $('cntV1').innerText = v1Count;
+      $('cntW').innerText = wCount;
       $('cntPre').innerText = preCount;
       $('cntCau').innerText = cauCount;
 
       const c1Slider = $('c1Slider');
       if (points.length > 0) {
-        c1Slider.min = 2;
+        c1Slider.min = wCount + 2;
         c1Slider.max = Math.max(3, points.length + 1);
         if (firstCaudalIndex > points.length + 1) firstCaudalIndex = points.length + 1;
         c1Slider.value = firstCaudalIndex;
@@ -667,9 +769,10 @@
         return;
       }
       let html = '';
-      let pre = 0, cau = 0;
+      let w = 0, pre = 0, cau = 0;
       points.forEach((pt, i) => {
         let tag = 'V1';
+        if (pt.region === 'weberian') tag = `W${++w}`;
         if (pt.region === 'precaudal') tag = `P${++pre}`;
         if (pt.region === 'caudal') tag = `C${++cau}`;
         let spacing = (i > 0) ? (Math.hypot(pt.x - points[i-1].x, pt.y - points[i-1].y) / pixelsPerMM).toFixed(2) : '-';
@@ -677,7 +780,7 @@
         html += `
           <tr>
             <td><strong>${i+1}</strong></td>
-            <td><span class="badge ${pt.region==='v1'?'bg-primary':pt.region==='precaudal'?'bg-danger':'bg-info'}">${tag}</span></td>
+            <td><span class="badge ${pt.region==='v1'?'bg-primary':pt.region==='weberian'?'bg-purple':pt.region==='precaudal'?'bg-danger':'bg-info'}">${tag}</span></td>
             <td>${pt.x.toFixed(1)}</td>
             <td>${pt.y.toFixed(1)}</td>
             <td>${spacing}</td>
@@ -718,28 +821,338 @@
         });
       }
 
-      // Landmarks
+      // Draw Landmarks
       const labelMode = $('labelSideSelect').value;
       const distOffset = 26 * k;
-      let pre = 0, cau = 0;
+      let w = 0, pre = 0, cau = 0;
 
       points.forEach((pt, i) => {
         const isSelected = (selectedPointIdx === i);
 
         if (pt.region === 'v1') {
           const boxSize = (isSelected ? 16 : 12) * k;
-          ctx.strokeStyle = '#3b82f6';
-          ctx.lineWidth = 2 * k;
+          ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2 * k;
           ctx.strokeRect(pt.x - boxSize/2, pt.y - boxSize/2, boxSize, boxSize);
           ctx.fillStyle = 'rgba(59, 130, 246, 0.4)';
           ctx.fillRect(pt.x - boxSize/2, pt.y - boxSize/2, boxSize, boxSize);
+        } else if (pt.region === 'weberian') {
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, (isSelected ? 7 : 4.5) * k, 0, Math.PI * 2);
+          ctx.fillStyle = '#a855f7'; ctx.strokeStyle = isSelected ? '#ffffff' : '#3b0764';
+          ctx.lineWidth = 1.5 * k; ctx.fill(); ctx.stroke();
         } else if (pt.region === 'precaudal') {
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, (isSelected ? 7 : 4.5) * k, 0, Math.PI * 2);
-          ctx.fillStyle = '#ef4444';
-          ctx.strokeStyle = isSelected ? '#ffffff' : '#450a0a';
-          ctx.lineWidth = 1.5 * k;
-          ctx.fill(); ctx.stroke();
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, (isSelected ? 7 : 4.5) * k, 0, Math.PI * 2);
+          ctx.fillStyle = '#ef4444'; ctx.strokeStyle = isSelected ? '#ffffff' : '#450a0a';
+          ctx.lineWidth = 1.5 * k; ctx.fill(); ctx.stroke();
         } else {
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, (isSelected ?
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, (isSelected ? 7 : 4.5) * k, 0, Math.PI * 2);
+          ctx.fillStyle = '#06b6d4'; ctx.strokeStyle = isSelected ? '#ffffff' : '#083344';
+          ctx.lineWidth = 1.5 * k; ctx.fill(); ctx.stroke();
+        }
+
+        if (labelMode !== 'none') {
+          let tag = 'V1';
+          let tagColor = '#3b82f6';
+          if (pt.region === 'weberian') { tag = `W${++w}`; tagColor = '#a855f7'; }
+          if (pt.region === 'precaudal') { tag = `P${++pre}`; tagColor = '#ef4444'; }
+          if (pt.region === 'caudal') { tag = `C${++cau}`; tagColor = '#06b6d4'; }
+
+          let sign = (labelMode === 'right') ? 1 : (labelMode === 'left') ? -1 : (i % 2 === 0 ? 1 : -1);
+          const lx = pt.x + (distOffset * sign);
+          const ly = pt.y;
+
+          ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(lx, ly);
+          ctx.strokeStyle = tagColor; ctx.lineWidth = 1 * k; ctx.stroke();
+
+          ctx.font = `bold ${9 * k}px sans-serif`;
+          ctx.fillStyle = 'rgba(8, 12, 20, 0.9)'; ctx.strokeStyle = tagColor; ctx.lineWidth = 1 * k;
+          const textW = ctx.measureText(tag).width;
+          ctx.fillRect(lx - textW/2 - 2*k, ly - 5*k, textW + 4*k, 10*k);
+          ctx.strokeRect(lx - textW/2 - 2*k, ly - 5*k, textW + 4*k, 10*k);
+
+          ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(tag, lx, ly);
+        }
+      });
+
+      // Scale Calibration Line
+      if (placementStep === 2 && calibStart && currentHoverPos) {
+        ctx.beginPath(); ctx.moveTo(calibStart.x, calibStart.y);
+        ctx.lineTo(currentHoverPos.x, currentHoverPos.y);
+        ctx.strokeStyle = '#10b981'; ctx.lineWidth = 3 * k; ctx.stroke();
+      }
+    }
+
+    function getCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: (e.clientX - rect.left - panX) / scale, y: (e.clientY - rect.top - panY) / scale };
+    }
+
+    const hitPoint = e => {
+      const c = getCanvasCoords(e), r = 14 / scale;
+      return points.findIndex(pt => Math.hypot(pt.x - c.x, pt.y - c.y) < r);
+    };
+
+    wrapper.addEventListener('mousedown', e => {
+      if (e.target.closest(UI_SEL)) return;
+      suppressClick = false;
+
+      if (activeTool === 'pan' || e.button === 1) {
+        isPanning = true; startPanX = e.clientX - panX; startPanY = e.clientY - panY;
+        return;
+      }
+
+      const c = getCanvasCoords(e);
+      if (placementStep === 2) {
+        if (!calibStart) { 
+          calibStart = c; render();
+        } else {
+          const pxDist = Math.hypot(c.x - calibStart.x, c.y - calibStart.y);
+          const mm = parseFloat($('scaleBarMM').value) || 50;
+          pixelsPerMM = pxDist / mm;
+          placementStep = 0; hideBanner(); updateUIStats(); render();
+        }
+        return;
+      }
+
+      if (placementStep === 1) { spineNodes.push(c); render(); return; }
+
+      if (e.button === 0) {
+        const idx = hitPoint(e);
+        if (idx !== -1) {
+          selectedPointIdx = idx;
+          if (e.shiftKey) { 
+            saveState(); firstCaudalIndex = idx + 1; updateRegionSplits(); return; 
+          }
+          draggingPoint = idx;
+        } else { selectedPointIdx = null; }
+        render();
+      }
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (isPanning) { panX = e.clientX - startPanX; panY = e.clientY - startPanY; render(); return; }
+      const c = getCanvasCoords(e); currentHoverPos = c;
+
+      if (activeTool === 'draw' && placementStep === 0) {
+        canvas.style.cursor = hitPoint(e) !== -1 ? 'move' : 'crosshair';
+      }
+
+      if (draggingPoint !== null) { points[draggingPoint].x = c.x; points[draggingPoint].y = c.y; render(); return; }
+      if (placementStep === 1 || placementStep === 2) render();
+    });
+
+    window.addEventListener('mouseup', () => { 
+      isPanning = false; 
+      if (draggingPoint !== null) { draggingPoint = null; suppressClick = true; reclassifyRegions(); } 
+    });
+
+    wrapper.addEventListener('click', e => {
+      if (e.target.closest(UI_SEL) || suppressClick || placementStep !== 0) { suppressClick = false; return; }
+      const c = getCanvasCoords(e);
+      if (hitPoint(e) === -1) { 
+        saveState(); 
+        points.push({ x: c.x, y: c.y }); 
+        points.sort((a, b) => b.y - a.y); // Maintain cranial (bottom) to caudal (top) order
+        reclassifyRegions(); 
+      }
+    });
+
+    wrapper.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const idx = hitPoint(e);
+      if (idx !== -1) { saveState(); points.splice(idx, 1); reclassifyRegions(); }
+    });
+
+    wrapper.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      const newScale = Math.min(40, Math.max(0.05, scale * zoomFactor));
+
+      if (newScale !== scale) {
+        panX = mouseX - (mouseX - panX) * (newScale / scale);
+        panY = mouseY - (mouseY - panY) * (newScale / scale);
+        scale = newScale;
+        render();
+      }
+    }, { passive: false });
+
+    function startSplinePlacement() {
+      saveState(); placementStep = 1; spineNodes = []; setTool('draw');
+      showBanner('Click nodes along spine: Atlas (bottom) to Caudal peduncle (top). Double-click when done.');
+      render();
+    }
+
+    function finishSplinePlacement() {
+      if (placementStep !== 1) return;
+      if (spineNodes.length < 2) return alert('Place at least 2 nodes.');
+      placementStep = 0; hideBanner(); runRawSpineCentrumDetector();
+    }
+
+    wrapper.addEventListener('dblclick', e => { if (!e.target.closest(UI_SEL) && placementStep === 1) finishSplinePlacement(); });
+
+    window.addEventListener('keydown', e => {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLastAction(); }
+      if (e.key === 'Enter' && placementStep === 1) finishSplinePlacement();
+      if (e.key === 'Escape') { placementStep = 0; hideBanner(); render(); }
+    });
+
+    function startScaleCalibration() {
+      placementStep = 2; calibStart = null; showBanner('Click top and bottom of the vertical scale bar.'); setTool('draw');
+    }
+
+    function applyImagePreprocessing() {
+      if (!rawImageBitmap) return;
+      const mode = $('filterModeSelect').value;
+      const w = rawImageBitmap.width, h = rawImageBitmap.height;
+      procCanvas.width = w; procCanvas.height = h; procCtx.drawImage(rawImageBitmap, 0, 0);
+
+      if (mode === 'original') { currentImage = rawImageBitmap; render(); return; }
+
+      const imgData = procCtx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      if (mode === 'inverted') {
+        for (let i = 0; i < data.length; i += 4) { 
+          data[i] = 255 - data[i]; data[i+1] = 255 - data[i+1]; data[i+2] = 255 - data[i+2]; 
+        }
+      } else if (mode === 'histeq') {
+        const hist = new Uint32Array(256);
+        const totalPixels = w * h;
+        for (let i = 0; i < data.length; i += 4) {
+          hist[Math.round(data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114)]++;
+        }
+        const cdf = new Uint32Array(256);
+        let cum = 0;
+        for (let i = 0; i < 256; i++) { cum += hist[i]; cdf[i] = cum; }
+        let minCDF = 0;
+        for (let i = 0; i < 256; i++) { if (cdf[i] > 0) { minCDF = cdf[i]; break; } }
+        const lut = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) {
+          lut[i] = Math.round(((cdf[i] - minCDF) / (totalPixels - minCDF)) * 255);
+        }
+        for (let i = 0; i < data.length; i += 4) {
+          const eq = lut[Math.round(data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114)];
+          data[i] = eq; data[i+1] = eq; data[i+2] = eq;
+        }
+      }
+
+      procCtx.putImageData(imgData, 0, 0);
+      const eqImg = new Image();
+      eqImg.onload = () => { currentImage = eqImg; render(); };
+      eqImg.src = procCanvas.toDataURL();
+    }
+
+    function updateImageFilters() {
+      $('brightnessVal').innerText =$('brightnessSlider').value + '%';
+      $('contrastVal').innerText =$('contrastSlider').value + '%';
+      render();
+    }
+
+    function exportWorkspace() {
+      const species = $('speciesInput').value.trim() || 'Cichlidae sp.';
+      const sex = $('sexSelect').value || 'Unknown';
+      const ws = {
+        imageName, species, sex, spineNodes, points,
+        firstCaudalIndex, weberianCount: parseInt($('weberianCountInput').value) || 0,
+        scale, panX, panY, pixelsPerMM
+      };
+      downloadFile(JSON.stringify(ws, null, 2), `${imageName}_workspace.json`, 'application/json');
+    }
+
+    function importWorkspace(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = evt => {
+        try {
+          const ws = JSON.parse(evt.target.result);
+          imageName = ws.imageName || 'specimen';
+          if (ws.species) $('speciesInput').value = ws.species;
+          if (ws.sex) $('sexSelect').value = ws.sex;
+          spineNodes = ws.spineNodes || [];
+          points = ws.points || [];
+          firstCaudalIndex = ws.firstCaudalIndex || 15;
+          $('weberianCountInput').value = ws.weberianCount || 0;
+          scale = ws.scale || 1; panX = ws.panX || 0; panY = ws.panY || 0;
+          pixelsPerMM = ws.pixelsPerMM || 10.0;
+          reclassifyRegions();
+        } catch (err) { alert('Invalid workspace file.'); }
+      };
+      reader.readAsText(file);
+    }
+
+    function exportCSV() {
+      const species = $('speciesInput').value.trim() || 'Cichlidae sp.';
+      const sex = $('sexSelect').value || 'Unknown';
+      let spineLenPx = 0;
+      for (let i = 1; i < points.length; i++) {
+        spineLenPx += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
+      }
+      const spineLenMM = spineLenPx / pixelsPerMM;
+      const meanSpacingMM = points.length > 1 ? (spineLenMM / (points.length - 1)) : 0;
+
+      const preCount = points.filter(p => p.region === 'precaudal').length + 1;
+      const cauCount = points.filter(p => p.region === 'caudal').length;
+
+      let csv = `SPECIMEN_ID,SPECIES,SEX,TOTAL_VERTEBRAE,PRECAUDAL_COUNT,CAUDAL_COUNT,SPINE_LENGTH_MM,MEAN_CENTRUM_SPACING_MM\n`;
+      csv += `"${imageName}","${species}","${sex}",${points.length},${preCount},${cauCount},${spineLenMM.toFixed(2)},${meanSpacingMM.toFixed(2)}\n\n`;
+      csv += `CENTRUM_INDEX,X_PX,Y_PX,REGION_TYPE,LABEL,INTER_CENTRUM_SPACING_MM\n`;
+
+      let w = 0, pre = 0, cau = 0;
+      points.forEach((pt, i) => {
+        let tag = 'V1';
+        if (pt.region === 'weberian') tag = `W${++w}`;
+        if (pt.region === 'precaudal') tag = `P${++pre}`;
+        if (pt.region === 'caudal') tag = `C${++cau}`;
+        let spacing = (i > 0) ? (Math.hypot(pt.x - points[i-1].x, pt.y - points[i-1].y) / pixelsPerMM).toFixed(3) : 0;
+        csv += `${i+1},${pt.x.toFixed(2)},${pt.y.toFixed(2)},${pt.region},${tag},${spacing}\n`;
+      });
+
+      downloadFile(csv, `${imageName}_morphometrics.csv`, 'text/csv');
+    }
+
+    function downloadFile(content, fileName, mimeType) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
+      a.download = fileName; a.click();
+    }
+
+    function switchTab(tab) {
+      $('tabSectionPipeline').style.display = tab === 'pipeline' ? 'block' : 'none';$('tabSectionData').style.display = tab === 'data' ? 'block' : 'none';
+      $('tabSectionDisplay').style.display = tab === 'display' ? 'block' : 'none';$('tabSectionCalib').style.display = tab === 'calib' ? 'block' : 'none';
+
+      $('tabBtnPipeline').className = `tab-btn ${tab === 'pipeline' ? 'active' : ''}`;
+      $('tabBtnData').className = `tab-btn ${tab === 'data' ? 'active' : ''}`;
+      $('tabBtnDisplay').className = `tab-btn ${tab === 'display' ? 'active' : ''}`;
+      $('tabBtnCalib').className = `tab-btn ${tab === 'calib' ? 'active' : ''}`;
+    }
+
+    function showBanner(msg) { const b = $('bannerInstruction'); b.innerText = msg; b.style.display = 'block'; }
+    function hideBanner() { $('bannerInstruction').style.display = 'none'; }
+    function zoomIn() { scale = Math.min(40, scale * 1.25); render(); }
+    function zoomOut() { scale = Math.max(0.05, scale * 0.8); render(); }
+    function resetView() {
+      if (!currentImage) return;
+      scale = Math.min(wrapper.clientWidth / currentImage.width, wrapper.clientHeight / currentImage.height) * 0.9;
+      panX = (wrapper.clientWidth - currentImage.width * scale) / 2;
+      panY = (wrapper.clientHeight - currentImage.height * scale) / 2;
+      render();
+    }
+    function setTool(tool) {
+      activeTool = tool;
+      $('btnPanToggle').className = `floating-btn ${tool === 'pan' ? 'active' : ''}`;
+      wrapper.className = tool === 'pan' ? 'canvas-wrapper mode-pan' : 'canvas-wrapper mode-draw';
+    }
+
+    window.addEventListener('resize', () => { 
+      canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight; resetView(); 
+    });
+    canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight;
+  </script>
+</body>
+</html>
