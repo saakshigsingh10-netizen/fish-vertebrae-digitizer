@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VertebraDigitizer Raw AI - Anatomical Radiograph Analyzer</title>
+  <title>VertebraDigitizer - Raw Radiograph Analyzer</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
@@ -11,7 +11,7 @@
       --v1-color: #3b82f6;     /* V1 Atlas (Blue Box) */
       --pre-color: #ef4444;    /* Precaudal P1+ (Red) */
       --cau-color: #06b6d4;    /* Caudal C1+ (Cyan) */
-      --w-color: #a855f7;      /* Weberian (if applicable) */
+      --w-color: #a855f7;      /* Weberian (if present) */
       --bg-dark: #07090e;
       --panel-bg: rgba(13, 17, 25, 0.96);
       --border-color: rgba(255, 255, 255, 0.12);
@@ -185,10 +185,10 @@
         </div>
 
         <div class="card bg-dark border-primary p-3 mb-3">
-          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-activity me-1"></i> Raw Spine Periodicity Auto-Detector</div>
+          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-activity me-1"></i> Raw Spine Radiodensity Detector</div>
           <p class="text-muted fs-7 mb-2">
-            1. Draw spine curve from <strong>Atlas ($V_1$, skull base)</strong> to the <strong>caudal fin base</strong>.<br>
-            2. Auto-Detect uses spatial periodicity to locate each centrum on raw grayscale images without dots.
+            1. Click <strong>Draw Spine Path</strong> and trace from the <strong>Atlas ($V_1$, skull base)</strong> to the <strong>caudal peduncle</strong>.<br>
+            2. Click <strong>Auto-Detect Centra</strong> to find vertebral centers using transverse cross-sections.
           </p>
           <div class="d-flex gap-2 mb-2">
             <button class="btn btn-sm btn-primary fw-bold flex-grow-1" onclick="startSplinePlacement()">
@@ -199,7 +199,7 @@
             </button>
           </div>
           <button class="btn btn-sm btn-outline-warning w-100 fs-7" onclick="flipPointOrder()">
-            <i class="bi bi-arrow-down-up me-1"></i> Flip Column Direction (Head <-> Tail)
+            <i class="bi bi-arrow-down-up me-1"></i> Flip Direction (Head <-> Tail)
           </button>
         </div>
 
@@ -239,7 +239,7 @@
           <div class="mb-2">
             <label class="form-label small mb-1 fw-bold" style="color:var(--w-color)">Weberian Count ($W$)</label>
             <input type="number" id="weberianCountInput" min="0" max="6" value="0" class="form-control form-control-sm bg-dark text-light border-secondary" onchange="reclassifyRegions()">
-            <div class="text-muted fs-7">Set to 0 for Cichlids/Percomorphs; set to 4 for Otophysans.</div>
+            <div class="text-muted fs-7">Set to 0 for non-otophysans (e.g. Cichlids); set to 4 for Otophysans.</div>
           </div>
 
           <div class="mb-2">
@@ -248,7 +248,7 @@
               <span id="c1IndexDisplay" class="badge bg-warning text-dark fw-bold">Centrum #15</span>
             </div>
             <input type="range" class="form-range" id="c1Slider" min="2" max="35" value="15" oninput="updateRegionSplits()">
-            <div class="text-muted fs-7">Starts immediately behind posterior gas bladder cavity.</div>
+            <div class="text-muted fs-7">Starts immediately behind the abdominal/gas bladder cavity.</div>
           </div>
 
           <div class="d-flex justify-content-between fs-7 pt-2 border-top border-secondary text-center mt-2">
@@ -263,7 +263,7 @@
           <div class="fw-bold text-light mb-1"><i class="bi bi-mouse me-1"></i> Manual Correction Controls</div>
           <div>• <strong>Left Click Canvas:</strong> Manually place a missing centrum.</div>
           <div>• <strong>Drag Dot:</strong> Refine centrum position.</div>
-          <div>• <strong>Right Click Dot:</strong> Delete false detection.</div>
+          <div>• <strong>Right Click Dot:</strong> Delete landmark.</div>
           <div>• <strong>Shift + Click Dot:</strong> Designate selected centrum as $C_1$.</div>
           <div>• <strong>Ctrl + Z:</strong> Undo any edit.</div>
         </div>
@@ -440,7 +440,7 @@
       reclassifyRegions();
     }
 
-    // Realistic pure raw grayscale radiograph generator (NO pre-drawn colored dots)
+    // Realistic pure raw grayscale radiograph generator
     function generateSampleRadiograph() {
       const w = 600, h = 1200;
       const offscreen = document.createElement('canvas');
@@ -463,7 +463,7 @@
       oCtx.fillStyle = '#080c14';
       oCtx.fill();
 
-      // Pure raw vertebral column without any colored dots
+      // Pure raw vertebral column in grayscale
       const numVerts = 31;
       const startX = 300, startY = 1050, endX = 300, endY = 180;
 
@@ -481,7 +481,7 @@
         oCtx.lineWidth = 2;
         oCtx.stroke();
 
-        // Arches / Spines
+        // Ribs / Neural spines
         oCtx.beginPath();
         oCtx.moveTo(vx - 11, vy);
         oCtx.lineTo(vx - 32, vy + (t < 0.45 ? 24 : -18));
@@ -560,7 +560,7 @@
       return fullCurve;
     }
 
-    // Regularized Spatial-Periodicity Detector for Raw Grayscale Radiographs
+    // Pure Grayscale Density & Spatial-Periodicity Detector for Raw Radiographs
     function runRawSpineCentrumDetector() {
       if (!currentImage || spineNodes.length < 2) return;
       saveState();
@@ -641,7 +641,6 @@
         }
 
         const rawPt = fullCurve[bestIdx];
-        // 2D sub-pixel centroid snap to local bone density core
         const refinedPt = refineCentroid2D(rawPt, data, imgW, imgH);
         points.push(refinedPt);
       }
@@ -1150,7 +1149,8 @@
     }
 
     window.addEventListener('resize', () => { 
-      canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight; resetView(); 
+      canvas.width = wrapper.clientWidth; 
+      canvas.height = wrapper.clientHeight; resetView(); 
     });
     canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight;
   </script>
