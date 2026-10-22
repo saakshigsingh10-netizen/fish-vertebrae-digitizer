@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VertebraDigitizer - High-Precision Raw Radiograph Analyzer</title>
+  <title>VertebraDigitizer - Bandpass Radiograph Analyzer</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
@@ -113,4 +113,729 @@
 
     .graph-panel {
       background: #0b0f17;
-      border: 1px solid var(--border
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-shield-check text-info fs-4"></i>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">DoG Wave Engine</span></h5>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <label class="btn btn-sm btn-outline-info mb-0">
+        <i class="bi bi-folder2-open me-1"></i> Open Raw X-Ray
+        <input type="file" id="imageInput" accept="image/*" hidden onchange="handleImageUpload(event)">
+      </label>
+      <button class="btn btn-sm btn-outline-secondary" onclick="generateSampleRadiograph()">
+        <i class="bi bi-magic me-1"></i> Sample Specimen
+      </button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="exportWorkspace()">
+        <i class="bi bi-save me-1"></i> Save JSON
+      </button>
+      <label class="btn btn-sm btn-outline-secondary mb-0">
+        <i class="bi bi-folder-symlink me-1"></i> Load JSON
+        <input type="file" id="workspaceInput" accept=".json" hidden onchange="importWorkspace(event)">
+      </label>
+      <button class="btn btn-sm btn-success fw-bold" onclick="exportCSV()">
+        <i class="bi bi-filetype-csv me-1"></i> Export CSV
+      </button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div class="sidebar p-3">
+      <div class="d-flex border-bottom border-secondary mb-3 justify-content-between">
+        <button id="tabBtnPipeline" class="tab-btn active" onclick="switchTab('pipeline')"><i class="bi bi-cpu me-1"></i> Detector</button>
+        <button id="tabBtnDisplay" class="tab-btn" onclick="switchTab('display')"><i class="bi bi-sliders me-1"></i> Image</button>
+        <button id="tabBtnCalib" class="tab-btn" onclick="switchTab('calib')"><i class="bi bi-rulers me-1"></i> Scale</button>
+      </div>
+
+      <!-- TAB 1: Detector -->
+      <div id="tabSectionPipeline">
+        <!-- Specimen Info & Fast Sex Selector -->
+        <div class="card bg-dark border-secondary p-3 mb-3">
+          <div class="fw-bold text-info fs-7 mb-2"><i class="bi bi-card-heading me-1"></i> Specimen Identification & Sex</div>
+          <div class="mb-2">
+            <label class="text-muted small">Image / Specimen Name</label>
+            <input type="text" id="specimenIdInput" class="form-control form-control-sm bg-dark text-light border-secondary" value="specimen_01">
+          </div>
+          <div>
+            <label class="text-muted small d-block mb-1">Sex</label>
+            <div class="btn-group w-100" role="group">
+              <input type="radio" class="btn-check" name="sexOption" id="sexFemale" value="Female" checked onchange="saveState()">
+              <label class="btn btn-sm btn-outline-danger" for="sexFemale"><i class="bi bi-gender-female"></i> Female</label>
+
+              <input type="radio" class="btn-check" name="sexOption" id="sexMale" value="Male" onchange="saveState()">
+              <label class="btn btn-sm btn-outline-primary" for="sexMale"><i class="bi bi-gender-male"></i> Male</label>
+
+              <input type="radio" class="btn-check" name="sexOption" id="sexUnknown" value="Unknown" onchange="saveState()">
+              <label class="btn btn-sm btn-outline-secondary" for="sexUnknown">Unknown</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="card bg-dark border-primary p-3 mb-3">
+          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-activity me-1"></i> DoG Bandpass Centrum Detector</div>
+          <p class="text-muted fs-7 mb-2">
+            1. Click <strong>Draw Spine Path</strong> and trace from Atlas (skull base at bottom) to tail peduncle.<br>
+            2. Click <strong>Auto-Detect Centra</strong> to find all vertebrae dynamically.
+          </p>
+          <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-sm btn-primary fw-bold flex-grow-1" onclick="startSplinePlacement()">
+              <i class="bi bi-vector-pen me-1"></i> 1. Draw Spine
+            </button>
+            <button class="btn btn-sm btn-success fw-bold flex-grow-1" onclick="runDoGSpineDetector()">
+              <i class="bi bi-magic me-1"></i> 2. Auto-Detect
+            </button>
+          </div>
+          <button class="btn btn-sm btn-outline-warning w-100 fs-7" onclick="flipPointOrder()">
+            <i class="bi bi-arrow-down-up me-1"></i> Flip Column Direction (Head <-> Tail)
+          </button>
+        </div>
+
+        <!-- Detection Tuning (Density Sensitivity & Spacing) -->
+        <div class="card bg-dark border-secondary p-3 mb-3">
+          <div class="fw-bold text-warning fs-7 mb-2"><i class="bi bi-sliders2 me-1"></i> Vertebra Spacing & Sensitivity</div>
+          <div class="mb-2">
+            <div class="d-flex justify-content-between fs-7 mb-1">
+              <span>Centrum Pitch / Min Distance:</span>
+              <span id="minSpacingVal" class="fw-bold text-info">16 px</span>
+            </div>
+            <input type="range" class="form-range" id="minSpacingSlider" min="8" max="50" value="16" oninput="$('minSpacingVal').innerText=this.value+' px'; runDoGSpineDetector();">
+            <div class="text-muted fs-7">Approximate distance between vertebrae in pixels.</div>
+          </div>
+          <div class="mb-2">
+            <div class="d-flex justify-content-between fs-7 mb-1">
+              <span>Peak Sensitivity:</span>
+              <span id="sensVal" class="fw-bold text-info">15%</span>
+            </div>
+            <input type="range" class="form-range" id="sensSlider" min="5" max="80" value="15" oninput="$('sensVal').innerText=this.value+'%'; runDoGSpineDetector();">
+            <div class="text-muted fs-7">Lower finds fainter vertebrae; higher ignores noise.</div>
+          </div>
+          <div class="mb-1">
+            <div class="d-flex justify-content-between fs-7 mb-1">
+              <span>Transverse Strip Width:</span>
+              <span id="stripWidthVal" class="fw-bold text-info">26 px</span>
+            </div>
+            <input type="range" class="form-range" id="stripWidthSlider" min="8" max="60" value="26" oninput="$('stripWidthVal').innerText=this.value+' px'; runDoGSpineDetector();">
+          </div>
+        </div>
+
+        <div class="graph-panel">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fs-7 text-info fw-bold"><i class="bi bi-graph-up me-1"></i> Bandpass Wave (Bone Crests)</span>
+            <span class="badge bg-secondary fs-7" id="graphStatus">Ready</span>
+          </div>
+          <canvas id="graphCanvas" width="380" height="90" style="width:100%; height:90px; background:#020305; border-radius:4px;"></canvas>
+        </div>
+
+        <!-- Regional Classification -->
+        <div class="card bg-dark border-secondary p-3 mb-3">
+          <div class="fw-bold text-light fs-7 mb-2"><i class="bi bi-diagram-2 me-1"></i> Regional Classification</div>
+
+          <div class="mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fs-7 text-danger fw-bold">First Caudal Centrum ($C_1$)</span>
+              <span id="c1IndexDisplay" class="badge bg-warning text-dark fw-bold">Centrum #15</span>
+            </div>
+            <input type="range" class="form-range" id="c1Slider" min="2" max="60" value="15" oninput="updateRegionSplits()">
+            <div class="text-muted fs-7">Or simply <strong>Shift + Click</strong> a vertebra on the canvas to set $C_1$.</div>
+          </div>
+
+          <div class="d-flex justify-content-between fs-7 pt-2 border-top border-secondary text-center mt-2">
+            <div><span class="text-danger fw-bold">Precaudal:</span> <strong id="cntPre">0</strong></div>
+            <div><span class="text-info fw-bold">Caudal:</span> <strong id="cntCau">0</strong></div>
+            <div><span class="text-primary fw-bold">Total:</span> <strong id="cntTotal">0</strong></div>
+          </div>
+        </div>
+
+        <div class="card bg-dark border-secondary p-3 mb-3 fs-7 text-muted">
+          <div class="fw-bold text-light mb-1"><i class="bi bi-mouse me-1"></i> Correction Controls</div>
+          <div>• <strong>Left Click Canvas:</strong> Add missing vertebra.</div>
+          <div>• <strong>Drag Dot:</strong> Move vertebra position.</div>
+          <div>• <strong>Right Click Dot:</strong> Delete false landmark.</div>
+          <div>• <strong>Shift + Click Dot:</strong> Set as First Caudal ($C_1$).</div>
+          <div>• <strong>Ctrl + Z:</strong> Undo any step.</div>
+        </div>
+      </div>
+
+      <!-- TAB 2: Image Adjustments -->
+      <div id="tabSectionDisplay" style="display:none;">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-filter-circle me-1"></i> Enhancement</h6>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Filter View Mode</label>
+          <select id="filterModeSelect" class="form-select form-select-sm bg-dark text-light border-secondary" onchange="applyImagePreprocessing()">
+            <option value="original">Original Radiograph</option>
+            <option value="histeq">Histogram Equalized (CLAHE)</option>
+            <option value="inverted">Inverted X-Ray (Negative)</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Brightness: <span id="brightnessVal">100%</span></label>
+          <input type="range" class="form-range" id="brightnessSlider" min="20" max="300" value="100" oninput="updateImageFilters()">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Contrast: <span id="contrastVal">100%</span></label>
+          <input type="range" class="form-range" id="contrastSlider" min="20" max="300" value="100" oninput="updateImageFilters()">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Label Position</label>
+          <select id="labelSideSelect" class="form-select form-select-sm bg-dark text-light border-secondary" onchange="render()">
+            <option value="right" selected>Perpendicular Right</option>
+            <option value="left">Perpendicular Left</option>
+            <option value="alternate">Alternate Sides</option>
+            <option value="none">Points Only (No Text Labels)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- TAB 3: Calibration -->
+      <div id="tabSectionCalib" style="display:none;">
+        <h6 class="text-uppercase text-muted fw-bold fs-7 mb-2"><i class="bi bi-rulers me-1"></i> Scale Bar Calibration</h6>
+        <div class="mb-3">
+          <label class="form-label small mb-1">Known Scale Length (mm)</label>
+          <input type="number" id="scaleBarMM" class="form-control form-control-sm bg-dark text-light border-secondary" value="50" step="1">
+        </div>
+        <button class="btn btn-sm btn-outline-info w-100 mb-3" onclick="startScaleCalibration()">
+          <i class="bi bi-arrows-expand me-1"></i> Calibrate Scale Bar
+        </button>
+        <div class="card bg-dark border-secondary p-2 fs-7">
+          <div class="mb-1">Scale Ratio: <strong id="ppmDisplay" class="text-info">10.00 px/mm</strong></div>
+          <div class="mb-1">Spine Column Arc: <strong id="spineLenDisplay" class="text-warning">0.0 mm</strong></div>
+          <div>Mean Centrum Spacing: <strong id="meanSpacingDisplay" class="text-success">0.00 mm</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas Workspace -->
+    <div class="canvas-wrapper mode-draw" id="canvasWrapper">
+      <div id="bannerInstruction" class="banner-instruction"></div>
+      <canvas id="imageCanvas"></canvas>
+      <canvas id="processingCanvas" style="display:none;"></canvas>
+
+      <div class="floating-controls">
+        <button class="floating-btn" onclick="clearAllPoints()" title="Clear All Points"><i class="bi bi-trash"></i></button>
+        <button class="floating-btn" onclick="undoLastAction()" title="Undo (Ctrl+Z)"><i class="bi bi-arrow-counterclockwise"></i></button>
+        <button id="btnPanToggle" class="floating-btn" onclick="setTool(activeTool === 'pan' ? 'draw' : 'pan')" title="Toggle Pan Mode"><i class="bi bi-hand-index-thumb"></i></button>
+        <button class="floating-btn" onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
+        <button class="floating-btn" onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
+        <button class="floating-btn" onclick="resetView()" title="Reset Fit View"><i class="bi bi-arrows-angle-contract"></i></button>
+      </div>
+
+      <div class="ai-dock">
+        <div class="counter-badge">
+          <span class="val val-pre" id="dockPreCount">0</span>
+          <span class="lbl">Precaudal</span>
+        </div>
+        <div class="counter-badge">
+          <span class="val val-cau" id="dockCauCount">0</span>
+          <span class="lbl">Caudal</span>
+        </div>
+        <div class="counter-badge">
+          <span class="val val-total" id="dockTotalCount">0</span>
+          <span class="lbl">Total Count</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const canvas = $('imageCanvas'), ctx = canvas.getContext('2d'), wrapper = $('canvasWrapper');
+    const procCanvas = $('processingCanvas'), procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+    const graphCanvas = $('graphCanvas'), graphCtx = graphCanvas.getContext('2d');
+    const UI_SEL = '.ai-dock, .floating-controls';
+
+    let currentImage = null, imageName = 'specimen_01';
+    let rawImageBitmap = null;
+    let activeTool = 'draw';
+    let points = []; 
+    let firstCaudalIndex = 15;
+    let scale = 1, panX = 0, panY = 0, isPanning = false, startPanX = 0, startPanY = 0;
+    let draggingPoint = null, selectedPointIdx = null, suppressClick = false;
+    let placementStep = 0; 
+    let spineNodes = [], currentHoverPos = null;
+    let calibStart = null, pixelsPerMM = 10.0;
+
+    let undoStack = [];
+    const MAX_HISTORY = 50;
+    let lastProfileData = null;
+
+    function ensureCanvasSize() {
+      const w = wrapper.clientWidth || (window.innerWidth - 440) || 800;
+      const h = wrapper.clientHeight || (window.innerHeight - 56) || 600;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      return { w, h };
+    }
+
+    window.addEventListener('load', () => { 
+      ensureCanvasSize();
+      generateSampleRadiograph(); 
+    });
+
+    function getSelectedSex() {
+      const selected = document.querySelector('input[name="sexOption"]:checked');
+      return selected ? selected.value : 'Unknown';
+    }
+
+    function setSelectedSex(val) {
+      if (val === 'Male' && $('sexMale')) $('sexMale').checked = true;
+      else if (val === 'Female' && $('sexFemale')) $('sexFemale').checked = true;
+      else if ($('sexUnknown')) $('sexUnknown').checked = true;
+    }
+
+    function saveState() {
+      undoStack.push({
+        points: JSON.parse(JSON.stringify(points)),
+        spineNodes: JSON.parse(JSON.stringify(spineNodes)),
+        firstCaudalIndex,
+        specimenId: $('specimenIdInput') ?$('specimenIdInput').value : imageName,
+        sex: getSelectedSex()
+      });
+      if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    }
+
+    function undoLastAction() {
+      if (undoStack.length === 0) return alert('No actions to undo.');
+      const prevState = undoStack.pop();
+      points = prevState.points;
+      spineNodes = prevState.spineNodes;
+      firstCaudalIndex = prevState.firstCaudalIndex;
+      if (prevState.specimenId && $('specimenIdInput'))$('specimenIdInput').value = prevState.specimenId;
+      if (prevState.sex) setSelectedSex(prevState.sex);
+      selectedPointIdx = null;
+      reclassifyRegions();
+    }
+
+    function clearAllPoints() {
+      if (points.length === 0) return;
+      saveState();
+      points = [];
+      reclassifyRegions();
+    }
+
+    function flipPointOrder() {
+      if (points.length < 2) return;
+      saveState();
+      points.reverse();
+      reclassifyRegions();
+    }
+
+    function generateSampleRadiograph() {
+      const w = 600, h = 1200;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = w; offscreen.height = h;
+      const oCtx = offscreen.getContext('2d');
+
+      oCtx.fillStyle = '#0f172a';
+      oCtx.fillRect(0, 0, w, h);
+
+      oCtx.beginPath();
+      oCtx.ellipse(300, 600, 150, 480, 0, 0, Math.PI * 2);
+      oCtx.fillStyle = '#1e293b';
+      oCtx.fill();
+      oCtx.strokeStyle = '#334155';
+      oCtx.lineWidth = 2;
+      oCtx.stroke();
+
+      oCtx.beginPath();
+      oCtx.ellipse(335, 710, 48, 110, 0.22, 0, Math.PI * 2);
+      oCtx.fillStyle = '#090d16';
+      oCtx.fill();
+
+      oCtx.beginPath();
+      oCtx.ellipse(300, 1080, 110, 80, 0, 0, Math.PI * 2);
+      oCtx.fillStyle = '#334155';
+      oCtx.fill();
+
+      // Sample 31 vertebrae column
+      const sampleCount = 31;
+      const startX = 300, startY = 1040, endX = 300, endY = 190;
+
+      for (let i = 0; i < sampleCount; i++) {
+        const t = i / (sampleCount - 1);
+        const vx = startX + Math.sin(t * Math.PI * 2) * 14;
+        const vy = startY + t * (endY - startY);
+
+        oCtx.beginPath();
+        oCtx.roundRect(vx - 12, vy - 8, 24, 16, 4);
+        oCtx.fillStyle = '#f8fafc';
+        oCtx.fill();
+        oCtx.strokeStyle = '#64748b';
+        oCtx.lineWidth = 1.5;
+        oCtx.stroke();
+
+        oCtx.beginPath();
+        oCtx.moveTo(vx - 12, vy);
+        oCtx.lineTo(vx - 36, vy + (t < 0.46 ? 26 : -18));
+        oCtx.strokeStyle = '#94a3b8';
+        oCtx.lineWidth = 1.5;
+        oCtx.stroke();
+      }
+
+      oCtx.fillStyle = '#ffffff';
+      oCtx.fillRect(80, 500, 6, 200);
+
+      const img = new Image();
+      img.onload = () => {
+        currentImage = img;
+        rawImageBitmap = img;
+        procCanvas.width = w; 
+        procCanvas.height = h;
+        procCtx.drawImage(img, 0, 0);
+
+        spineNodes = [
+          { x: 300, y: 1040 },
+          { x: 300, y: 615 },
+          { x: 300, y: 190 }
+        ];
+
+        ensureCanvasSize();
+        resetView();
+        runDoGSpineDetector();
+      };
+      img.src = offscreen.toDataURL();
+    }
+
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      imageName = file.name.replace(/\.[^.]+$/, '');
+      if ($('specimenIdInput'))$('specimenIdInput').value = imageName;
+
+      if (/-M-|_M_|-M_|_M-|-M$|_M$/i.test(imageName)) {
+        setSelectedSex('Male');
+      } else if (/-F-|_F_|-F_|_F-|-F$|_F$/i.test(imageName)) {
+        setSelectedSex('Female');
+      }
+
+      const reader = new FileReader();
+      reader.onload = evt => {
+        const img = new Image();
+        img.onload = () => {
+          currentImage = img;
+          rawImageBitmap = img;
+          points = []; 
+          spineNodes = []; 
+          placementStep = 0; 
+          undoStack = [];
+          procCanvas.width = img.width; 
+          procCanvas.height = img.height;
+          procCtx.drawImage(img, 0, 0);
+
+          ensureCanvasSize();
+          resetView();
+
+          // Initialize sample 3-node spline along specimen midline
+          spineNodes = [
+            { x: img.width * 0.49, y: img.height * 0.82 },
+            { x: img.width * 0.50, y: img.height * 0.52 },
+            { x: img.width * 0.51, y: img.height * 0.18 }
+          ];
+          runDoGSpineDetector();
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 1-to-1 Arc-Length Spline Resampler (exactly 1 pixel per sample)
+    function getArcLengthResampledSpline(nodes) {
+      if (nodes.length < 2) return [...nodes];
+      const padded = [nodes[0], ...nodes, nodes[nodes.length - 1]];
+      const rawPts = [];
+
+      for (let i = 0; i < padded.length - 3; i++) {
+        const p0 = padded[i], p1 = padded[i+1], p2 = padded[i+2], p3 = padded[i+3];
+        const segSteps = 120;
+        for (let s = 0; s < segSteps; s++) {
+          const t = s / segSteps, t2 = t * t, t3 = t2 * t;
+          const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+          const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+          rawPts.push({ x, y });
+        }
+      }
+      rawPts.push(nodes[nodes.length - 1]);
+
+      let totalLen = 0;
+      const cumDist = [0];
+      for (let i = 1; i < rawPts.length; i++) {
+        totalLen += Math.hypot(rawPts[i].x - rawPts[i-1].x, rawPts[i].y - rawPts[i-1].y);
+        cumDist.push(totalLen);
+      }
+
+      const numSamples = Math.max(10, Math.floor(totalLen));
+      const uniformCurve = [];
+      let cur = 0;
+
+      for (let i = 0; i <= numSamples; i++) {
+        const targetDist = (i / numSamples) * totalLen;
+        while (cur < cumDist.length - 1 && cumDist[cur + 1] < targetDist) cur++;
+        if (cur >= cumDist.length - 1) {
+          uniformCurve.push(rawPts[rawPts.length - 1]);
+        } else {
+          const seg = cumDist[cur + 1] - cumDist[cur];
+          const tSeg = seg > 0 ? (targetDist - cumDist[cur]) / seg : 0;
+          uniformCurve.push({
+            x: rawPts[cur].x + tSeg * (rawPts[cur + 1].x - rawPts[cur].x),
+            y: rawPts[cur].y + tSeg * (rawPts[cur + 1].y - rawPts[cur].y)
+          });
+        }
+      }
+      return uniformCurve;
+    }
+
+    function gaussianSmooth1D(arr, sigma) {
+      const radius = Math.ceil(sigma * 3);
+      const kernel = [];
+      let sum = 0;
+      for (let i = -radius; i <= radius; i++) {
+        const w = Math.exp(-(i * i) / (2 * sigma * sigma));
+        kernel.push(w);
+        sum += w;
+      }
+      for (let i = 0; i < kernel.length; i++) kernel[i] /= sum;
+
+      const out = new Float32Array(arr.length);
+      const n = arr.length;
+      for (let i = 0; i < n; i++) {
+        let acc = 0;
+        for (let k = -radius; k <= radius; k++) {
+          const idx = Math.min(n - 1, Math.max(0, i + k));
+          acc += arr[idx] * kernel[k + radius];
+        }
+        out[i] = acc;
+      }
+      return out;
+    }
+
+    // High-Precision Difference-of-Gaussians (DoG) Peak Detector
+    function runDoGSpineDetector() {
+      if (!currentImage || spineNodes.length < 2) return;
+      saveState();
+
+      if (spineNodes[0].y < spineNodes[spineNodes.length - 1].y) {
+        spineNodes.reverse();
+      }
+
+      const fullCurve = getArcLengthResampledSpline(spineNodes);
+      const imgW = currentImage.width, imgH = currentImage.height;
+      
+      if (procCanvas.width !== imgW || procCanvas.height !== imgH) {
+        procCanvas.width = imgW; 
+        procCanvas.height = imgH;
+        procCtx.drawImage(currentImage, 0, 0);
+      }
+
+      const imgData = procCtx.getImageData(0, 0, imgW, imgH);
+      const data = imgData.data;
+
+      const stripWidth = $('stripWidthSlider') ? (parseInt($('stripWidthSlider').value) || 26) : 26;
+      const minSpacingPx = $('minSpacingSlider') ? (parseInt($('minSpacingSlider').value) || 16) : 16;
+      const sensPercent = $('sensSlider') ? (parseInt($('sensSlider').value) || 15) : 15;
+
+      const n = fullCurve.length;
+      let rawProfile = new Float32Array(n);
+
+      for (let i = 0; i < n; i++) {
+        let dx = 0, dy = 0;
+        if (i === 0) { dx = fullCurve[1].x - fullCurve[0].x; dy = fullCurve[1].y - fullCurve[0].y; }
+        else if (i === n - 1) { dx = fullCurve[i].x - fullCurve[i-1].x; dy = fullCurve[i].y - fullCurve[i-1].y; }
+        else { dx = fullCurve[i+1].x - fullCurve[i-1].x; dy = fullCurve[i+1].y - fullCurve[i-1].y; }
+        
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len, ny = dx / len;
+
+        let stripSum = 0, count = 0;
+        for (let w = -stripWidth/2; w <= stripWidth/2; w += 2) {
+          const sx = Math.round(fullCurve[i].x + nx * w);
+          const sy = Math.round(fullCurve[i].y + ny * w);
+          if (sx >= 0 && sx < imgW && sy >= 0 && sy < imgH) {
+            const idx = (sy * imgW + sx) * 4;
+            stripSum += (data[idx] * 0.299 + data[idx+1] * 0.587 + data[idx+2] * 0.114);
+            count++;
+          }
+        }
+        rawProfile[i] = count > 0 ? stripSum / count : 0;
+      }
+
+      // Difference of Gaussians bandpass
+      const g1 = gaussianSmooth1D(rawProfile, 2.5); // preserves bone centrum frequency
+      const g2 = gaussianSmooth1D(rawProfile, 26.0); // wide tissue baseline
+      const bandpass = new Float32Array(n);
+      const posVals = [];
+
+      for (let i = 0; i < n; i++) {
+        bandpass[i] = Math.max(0, g1[i] - g2[i]);
+        if (bandpass[i] > 0) posVals.push(bandpass[i]);
+      }
+
+      // 95th-percentile scaling prevents one bright skull peak from squashing the rest
+      posVals.sort((a, b) => a - b);
+      const p95 = posVals.length > 0 ? posVals[Math.floor(posVals.length * 0.95)] : 1;
+      const threshold = p95 * (sensPercent / 100);
+
+      // Local maxima extraction
+      let rawPeaks = [];
+      for (let i = 2; i < n - 2; i++) {
+        if (bandpass[i] >= threshold &&
+            bandpass[i] > bandpass[i - 1] && bandpass[i] > bandpass[i - 2] &&
+            bandpass[i] >= bandpass[i + 1] && bandpass[i] >= bandpass[i + 2]) {
+          rawPeaks.push({ idx: i, val: bandpass[i] });
+        }
+      }
+
+      // Distance-based non-maximum suppression
+      rawPeaks.sort((a, b) => b.val - a.val);
+      let selectedIndices = [];
+      rawPeaks.forEach(p => {
+        const tooClose = selectedIndices.some(existing => Math.abs(existing - p.idx) < minSpacingPx);
+        if (!tooClose) selectedIndices.push(p.idx);
+      });
+
+      selectedIndices.sort((a, b) => a - b);
+
+      // Map landmarks onto spine path
+      points = [];
+      selectedIndices.forEach(pIdx => {
+        let sub = pIdx;
+        if (pIdx > 0 && pIdx < n - 1) {
+          const y0 = bandpass[pIdx - 1], y1 = bandpass[pIdx], y2 = bandpass[pIdx + 1];
+          const denom = 2 * (2 * y1 - y0 - y2);
+          if (Math.abs(denom) > 1e-4) sub = pIdx + (y0 - y2) / denom;
+        }
+        const clampSub = Math.max(0, Math.min(n - 1, Math.round(sub)));
+        const pt = fullCurve[clampSub];
+        points.push({ x: pt.x, y: pt.y });
+      });
+
+      lastProfileData = { raw: bandpass, maxVal: p95 * 1.25, threshold };
+      renderGraphInspector();
+      reclassifyRegions();
+      if ($('graphStatus'))$('graphStatus').innerText = `${points.length} Centra Found`;
+    }
+
+    function renderGraphInspector() {
+      if (!lastProfileData || !graphCanvas) return;
+      const w = graphCanvas.width, h = graphCanvas.height;
+      graphCtx.clearRect(0, 0, w, h);
+      const signal = lastProfileData.raw;
+      const maxVal = Math.max(lastProfileData.maxVal, 1);
+
+      graphCtx.beginPath();
+      for (let i = 0; i < signal.length; i++) {
+        const x = (i / (signal.length - 1)) * w;
+        const y = h - (signal[i] / maxVal) * (h - 10) - 5;
+        if (i === 0) graphCtx.moveTo(x, y); else graphCtx.lineTo(x, y);
+      }
+      graphCtx.strokeStyle = '#00f2fe';
+      graphCtx.lineWidth = 1.5;
+      graphCtx.stroke();
+
+      const threshY = h - (lastProfileData.threshold / maxVal) * (h - 10) - 5;
+      graphCtx.beginPath();
+      graphCtx.moveTo(0, threshY);
+      graphCtx.lineTo(w, threshY);
+      graphCtx.strokeStyle = '#eab308';
+      graphCtx.lineWidth = 1;
+      graphCtx.setLineDash([3, 3]);
+      graphCtx.stroke();
+      graphCtx.setLineDash([]);
+    }
+
+    function reclassifyRegions() {
+      if (!firstCaudalIndex || firstCaudalIndex > points.length) {
+        firstCaudalIndex = Math.max(2, Math.round(points.length * 0.48) + 1);
+      }
+
+      points.forEach((pt, idx) => {
+        const vertNum = idx + 1;
+        if (vertNum === 1) pt.region = 'v1';
+        else if (vertNum < firstCaudalIndex) pt.region = 'precaudal';
+        else pt.region = 'caudal';
+      });
+      updateUIStats();
+      render();
+    }
+
+    function updateRegionSplits() {
+      saveState();
+      firstCaudalIndex = parseInt($('c1Slider').value) || 2;
+      reclassifyRegions();
+    }
+
+    function updateUIStats() {
+      const preCount = points.filter(p => p.region === 'precaudal' || p.region === 'v1').length;
+      const cauCount = points.filter(p => p.region === 'caudal').length;
+
+      if ($('dockPreCount'))$('dockPreCount').innerText = preCount;
+      if ($('dockCauCount'))$('dockCauCount').innerText = cauCount;
+      if ($('dockTotalCount'))$('dockTotalCount').innerText = points.length;
+
+      if ($('cntPre'))$('cntPre').innerText = preCount;
+      if ($('cntCau'))$('cntCau').innerText = cauCount;
+      if ($('cntTotal'))$('cntTotal').innerText = points.length;
+
+      const c1Slider = $('c1Slider');
+      if (c1Slider) {
+        if (points.length > 1) {
+          c1Slider.min = 2;
+          c1Slider.max = points.length;
+          if (firstCaudalIndex > points.length) firstCaudalIndex = points.length;
+          c1Slider.value = firstCaudalIndex;
+          if ($('c1IndexDisplay'))$('c1IndexDisplay').innerText = `Centrum #${firstCaudalIndex}`;
+        } else {
+          c1Slider.min = 2; c1Slider.max = 2; c1Slider.value = 2;
+          if ($('c1IndexDisplay'))$('c1IndexDisplay').innerText = `None`;
+        }
+      }
+
+      let spineLenPx = 0;
+      for (let i = 1; i < points.length; i++) {
+        spineLenPx += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
+      }
+      const spineLenMM = spineLenPx / pixelsPerMM;
+      const meanSpacingMM = points.length > 1 ? (spineLenMM / (points.length - 1)) : 0;
+
+      if ($('spineLenDisplay'))$('spineLenDisplay').innerText = `${spineLenMM.toFixed(1)} mm`;
+      if ($('ppmDisplay'))$('ppmDisplay').innerText = `${pixelsPerMM.toFixed(2)} px/mm`;
+      if ($('meanSpacingDisplay'))$('meanSpacingDisplay').innerText = `${meanSpacingMM.toFixed(2)} mm`;
+    }
+
+    function render() {
+      ensureCanvasSize();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!currentImage) return;
+
+      if (!scale || scale <= 0 || !isFinite(scale)) {
+        scale = 1; panX = 0; panY = 0;
+      }
+
+      ctx.translate(panX, panY);
+      ctx.scale(scale, scale);
+
+      const b = $('brightnessSlider') ? ($('brightnessSlider').value || 100) : 100;
+      const c = $('contrastSlider') ? ($('contrastSlider').value || 100) : 100;
+      ctx.filter = `brightness(${b}%) contrast(${c}%)`;
+      ctx.drawImage(currentImage, 0, 0);
+      ctx.filter = 'none';
+
+      const k = 1 / scale;
+
+      // Active spline path
+      if (placementStep === 1 && spineNodes.length) {
+        const fullSpline = getArcLengthResampledSpline(spineNodes);
+        ctx.beginPath();
+        ctx.
