@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VertebraDigitizer - High-Precision Radiograph Analyzer</title>
+  <title>VertebraDigitizer - Anti-Double Count Engine</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
@@ -125,7 +125,7 @@
   <header class="app-header">
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-shield-check text-info fs-4"></i>
-      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">Precision Engine</span></h5>
+      <h5 class="m-0 fw-bold">VertebraDigitizer <span class="badge bg-primary fs-6 ms-2">Anti-Double Count</span></h5>
     </div>
     <div class="d-flex gap-2 align-items-center">
       <label class="btn btn-sm btn-outline-info mb-0">
@@ -163,7 +163,7 @@
           <div class="fw-bold text-info fs-7 mb-2"><i class="bi bi-card-heading me-1"></i> Specimen Identification & Sex</div>
           <div class="mb-2">
             <label class="text-muted small">Image / Specimen Name</label>
-            <input type="text" id="specimenIdInput" class="form-control form-control-sm bg-dark text-light border-secondary" value="20260427_F1-F-1">
+            <input type="text" id="specimenIdInput" class="form-control form-control-sm bg-dark text-light border-secondary" value="specimen_01">
           </div>
           <div>
             <label class="text-muted small d-block mb-1">Sex</label>
@@ -181,55 +181,60 @@
         </div>
 
         <div class="card bg-dark border-primary p-3 mb-3">
-          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-activity me-1"></i> Prominence-Based Centrum Detector</div>
+          <div class="fw-bold text-info fs-7 mb-1"><i class="bi bi-activity me-1"></i> Auto-Centrum Detector</div>
           <p class="text-muted fs-7 mb-2">
-            1. Click <strong>Draw Spine Path</strong> and click points along the spine from Atlas (bottom) to tail base (top).<br>
-            2. Click <strong>Auto-Detect Centra</strong> to find all vertebrae.
+            1. Click <strong>Draw Spine Path</strong> and trace from Atlas (bottom) to tail base (top).<br>
+            2. Click <strong>Auto-Detect Centra</strong>. Twin endplate peaks are automatically merged to prevent double-counting.
           </p>
           <div class="d-flex gap-2 mb-2">
             <button class="btn btn-sm btn-primary fw-bold flex-grow-1" onclick="startSplinePlacement()">
               <i class="bi bi-vector-pen me-1"></i> 1. Draw Spine
             </button>
-            <button class="btn btn-sm btn-success fw-bold flex-grow-1" onclick="runProminenceCentrumDetector()">
+            <button class="btn btn-sm btn-success fw-bold flex-grow-1" onclick="runAdaptiveCentrumDetector()">
               <i class="bi bi-magic me-1"></i> 2. Auto-Detect
             </button>
           </div>
-          <button class="btn btn-sm btn-outline-warning w-100 fs-7" onclick="flipPointOrder()">
-            <i class="bi bi-arrow-down-up me-1"></i> Flip Column Direction (Head <-> Tail)
-          </button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-warning flex-grow-1 fs-7" onclick="flipPointOrder()">
+              <i class="bi bi-arrow-down-up me-1"></i> Flip Direction
+            </button>
+            <button class="btn btn-sm btn-outline-info flex-grow-1 fs-7" onclick="mergeExcessivelyClosePoints()">
+              <i class="bi bi-arrows-collapse me-1"></i> Merge Duplicates
+            </button>
+          </div>
         </div>
 
         <!-- Density Tuning -->
         <div class="card bg-dark border-secondary p-3 mb-3">
-          <div class="fw-bold text-warning fs-7 mb-2"><i class="bi bi-sliders2 me-1"></i> Vertebra Spacing & Threshold Controls</div>
+          <div class="fw-bold text-warning fs-7 mb-2"><i class="bi bi-sliders2 me-1"></i> Centrum Pitch & Sensitivity</div>
           <div class="mb-2">
             <div class="d-flex justify-content-between fs-7 mb-1">
-              <span>Centrum Spacing (Min Separation):</span>
-              <span id="minSpacingVal" class="fw-bold text-info">15 px</span>
+              <span>Approx. Centrum Length / Spacing:</span>
+              <span id="minSpacingVal" class="fw-bold text-info">22 px</span>
             </div>
-            <input type="range" class="form-range" id="minSpacingSlider" min="6" max="45" value="15" oninput="$('minSpacingVal').innerText=this.value+' px'; runProminenceCentrumDetector();">
-            <div class="text-muted fs-7">Approximate distance between adjacent centra. Adjust to naturally increase or decrease total count.</div>
+            <input type="range" class="form-range" id="minSpacingSlider" min="10" max="60" value="22" oninput="$('minSpacingVal').innerText=this.value+' px'; runAdaptiveCentrumDetector();">
+            <div class="text-muted fs-7">If single vertebrae are double-counted, raise this slider to match vertebra width.</div>
           </div>
           <div class="mb-2">
             <div class="d-flex justify-content-between fs-7 mb-1">
-              <span>Prominence Sensitivity:</span>
-              <span id="sensVal" class="fw-bold text-info">1.5</span>
+              <span>Peak Sensitivity:</span>
+              <span id="sensVal" class="fw-bold text-info">15%</span>
             </div>
-            <input type="range" class="form-range" id="sensSlider" min="0.2" max="6.0" step="0.1" value="1.5" oninput="$('sensVal').innerText=this.value; runProminenceCentrumDetector();">
-            <div class="text-muted fs-7">Contrast height of vertebra ridge relative to disc space. Lower finds fainter vertebrae.</div>
+            <input type="range" class="form-range" id="sensSlider" min="5" max="80" value="15" oninput="$('sensVal').innerText=this.value+'%'; runAdaptiveCentrumDetector();">
+            <div class="text-muted fs-7">Lower finds fainter vertebrae in dark abdomen; higher filters noise.</div>
           </div>
           <div class="mb-1">
             <div class="d-flex justify-content-between fs-7 mb-1">
               <span>Transverse Strip Width:</span>
-              <span id="stripWidthVal" class="fw-bold text-info">24 px</span>
+              <span id="stripWidthVal" class="fw-bold text-info">26 px</span>
             </div>
-            <input type="range" class="form-range" id="stripWidthSlider" min="8" max="60" value="24" oninput="$('stripWidthVal').innerText=this.value+' px'; runProminenceCentrumDetector();">
+            <input type="range" class="form-range" id="stripWidthSlider" min="8" max="60" value="26" oninput="$('stripWidthVal').innerText=this.value+' px'; runAdaptiveCentrumDetector();">
           </div>
         </div>
 
         <div class="graph-panel">
           <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fs-7 text-info fw-bold"><i class="bi bi-graph-up me-1"></i> Local Centrum Prominence Profile</span>
+            <span class="fs-7 text-info fw-bold"><i class="bi bi-graph-up me-1"></i> Bone Density Waveform</span>
             <span class="badge bg-secondary fs-7" id="graphStatus">Ready</span>
           </div>
           <canvas id="graphCanvas" width="380" height="90" style="width:100%; height:90px; background:#020305; border-radius:4px;"></canvas>
@@ -245,7 +250,7 @@
               <span id="c1IndexDisplay" class="badge bg-warning text-dark fw-bold">Centrum #15</span>
             </div>
             <input type="range" class="form-range" id="c1Slider" min="2" max="60" value="15" oninput="updateRegionSplits()">
-            <div class="text-muted fs-7">Tip: <strong>Shift + Click</strong> any vertebra on the canvas to designate it as $C_1$.</div>
+            <div class="text-muted fs-7">Slide or <strong>Shift + Click</strong> any vertebra on canvas to assign $C_1$.</div>
           </div>
 
           <div class="d-flex justify-content-between fs-7 pt-2 border-top border-secondary text-center mt-2">
@@ -256,12 +261,12 @@
         </div>
 
         <div class="card bg-dark border-secondary p-3 mb-3 fs-7 text-muted">
-          <div class="fw-bold text-light mb-1"><i class="bi bi-mouse me-1"></i> Quick Correction Controls</div>
-          <div>• <strong>Left Click Canvas:</strong> Add a missed vertebra.</div>
-          <div>• <strong>Drag Dot:</strong> Reposition vertebra center.</div>
+          <div class="fw-bold text-light mb-1"><i class="bi bi-mouse me-1"></i> Manual Correction Controls</div>
+          <div>• <strong>Left Click Canvas:</strong> Add missing vertebra.</div>
+          <div>• <strong>Drag Dot:</strong> Reposition centrum center.</div>
           <div>• <strong>Right Click Dot:</strong> Delete false landmark.</div>
           <div>• <strong>Shift + Click Dot:</strong> Set as First Caudal ($C_1$).</div>
-          <div>• <strong>Ctrl + Z:</strong> Undo any step.</div>
+          <div>• <strong>Ctrl + Z:</strong> Undo any edit.</div>
         </div>
       </div>
 
@@ -354,7 +359,7 @@
     const graphCanvas = $('graphCanvas'), graphCtx = graphCanvas.getContext('2d');
     const UI_SEL = '.ai-dock, .floating-controls';
 
-    let currentImage = null, imageName = '20260427_F1-F-1';
+    let currentImage = null, imageName = 'specimen_01';
     let rawImageBitmap = null;
     let activeTool = 'draw';
     let points = []; 
@@ -503,7 +508,7 @@
 
         ensureCanvasSize();
         resetView();
-        runProminenceCentrumDetector();
+        runAdaptiveCentrumDetector();
       };
       img.src = offscreen.toDataURL();
     }
@@ -537,20 +542,19 @@
           ensureCanvasSize();
           resetView();
 
-          // Default initial spine points along vertical center line
           spineNodes = [
             { x: img.width * 0.49, y: img.height * 0.82 },
             { x: img.width * 0.50, y: img.height * 0.52 },
             { x: img.width * 0.51, y: img.height * 0.18 }
           ];
-          runProminenceCentrumDetector();
+          runAdaptiveCentrumDetector();
         };
         img.src = evt.target.result;
       };
       reader.readAsDataURL(file);
     }
 
-    // Arc-length parameterization (every point is 1.0 physical pixel of distance)
+    // 1-to-1 Arc-Length Spline Resampler (every point is 1.0 real physical pixel apart)
     function getArcLengthResampledSpline(nodes) {
       if (nodes.length < 2) return [...nodes];
       const padded = [nodes[0], ...nodes, nodes[nodes.length - 1]];
@@ -596,8 +600,32 @@
       return uniformCurve;
     }
 
-    // High-Precision Local Prominence Peak Detector
-    function runProminenceCentrumDetector() {
+    function gaussianSmooth1D(arr, sigma) {
+      const radius = Math.ceil(sigma * 3);
+      const kernel = [];
+      let sum = 0;
+      for (let i = -radius; i <= radius; i++) {
+        const w = Math.exp(-(i * i) / (2 * sigma * sigma));
+        kernel.push(w);
+        sum += w;
+      }
+      for (let i = 0; i < kernel.length; i++) kernel[i] /= sum;
+
+      const out = new Float32Array(arr.length);
+      const n = arr.length;
+      for (let i = 0; i < n; i++) {
+        let acc = 0;
+        for (let k = -radius; k <= radius; k++) {
+          const idx = Math.min(n - 1, Math.max(0, i + k));
+          acc += arr[idx] * kernel[k + radius];
+        }
+        out[i] = acc;
+      }
+      return out;
+    }
+
+    // Adaptive Centrum Detector with Twin-Endplate Reconciler
+    function runAdaptiveCentrumDetector() {
       if (!currentImage || spineNodes.length < 2) return;
       saveState();
 
@@ -617,9 +645,9 @@
       const imgData = procCtx.getImageData(0, 0, imgW, imgH);
       const data = imgData.data;
 
-      const stripWidth = $('stripWidthSlider') ? (parseInt($('stripWidthSlider').value) || 24) : 24;
-      const minSpacingPx = $('minSpacingSlider') ? (parseInt($('minSpacingSlider').value) || 15) : 15;
-      const sensThreshold = $('sensSlider') ? (parseFloat($('sensSlider').value) || 1.5) : 1.5;
+      const stripWidth = $('stripWidthSlider') ? (parseInt($('stripWidthSlider').value) || 26) : 26;
+      const minSpacingPx = $('minSpacingSlider') ? (parseInt($('minSpacingSlider').value) || 22) : 22;
+      const sensPercent = $('sensSlider') ? (parseFloat($('sensSlider').value) || 15) : 15;
 
       const n = fullCurve.length;
       let rawProfile = new Float32Array(n);
@@ -646,65 +674,71 @@
         rawProfile[i] = count > 0 ? stripSum / count : 0;
       }
 
-      // Smooth noise with a Gaussian filter (radius = 3px)
-      let smoothed = new Float32Array(n);
-      const kSpan = 3;
+      // Difference of Gaussians (DoG) bandpass isolating individual centra wavelengths
+      const g1 = gaussianSmooth1D(rawProfile, 2.5);
+      const g2 = gaussianSmooth1D(rawProfile, Math.max(16.0, minSpacingPx * 1.1));
+      const bandpass = new Float32Array(n);
+      const posVals = [];
+
       for (let i = 0; i < n; i++) {
-        let sum = 0, count = 0;
-        for (let k = -kSpan; k <= kSpan; k++) {
-          const idx = i + k;
-          if (idx >= 0 && idx < n) { sum += rawProfile[idx]; count++; }
-        }
-        smoothed[i] = sum / count;
+        bandpass[i] = Math.max(0, g1[i] - g2[i]);
+        if (bandpass[i] > 0) posVals.push(bandpass[i]);
       }
 
-      // Calculate LOCAL PROMINENCE for every point relative to neighboring valleys
-      // Window size is scaled to the expected centrum spacing
-      const win = Math.round(minSpacingPx * 1.2);
-      let prominence = new Float32Array(n);
-      let maxProm = 0;
+      // 90th percentile normalizer (prevents skull from washing out abdominal peaks)
+      posVals.sort((a, b) => a - b);
+      const p90 = posVals.length > 0 ? posVals[Math.floor(posVals.length * 0.90)] : 1;
+      const threshold = p90 * (sensPercent / 100);
 
+      // Local maxima extraction
+      let rawPeaks = [];
       for (let i = 2; i < n - 2; i++) {
-        // Is it a local peak?
-        if (smoothed[i] > smoothed[i - 1] && smoothed[i] >= smoothed[i + 1]) {
-          let leftMin = smoothed[i];
-          for (let j = Math.max(0, i - win); j < i; j++) {
-            if (smoothed[j] < leftMin) leftMin = smoothed[j];
-          }
-          let rightMin = smoothed[i];
-          for (let j = i + 1; j <= Math.min(n - 1, i + win); j++) {
-            if (smoothed[j] < rightMin) rightMin = smoothed[j];
-          }
-          const prom = smoothed[i] - Math.max(leftMin, rightMin);
-          prominence[i] = Math.max(0, prom);
-          if (prominence[i] > maxProm) maxProm = prominence[i];
+        if (bandpass[i] >= threshold &&
+            bandpass[i] > bandpass[i - 1] && bandpass[i] > bandpass[i - 2] &&
+            bandpass[i] >= bandpass[i + 1] && bandpass[i] >= bandpass[i + 2]) {
+          rawPeaks.push({ idx: i, val: bandpass[i] });
         }
       }
 
-      // Extract all candidate peaks above the local sensitivity threshold
-      let candidates = [];
-      for (let i = 2; i < n - 2; i++) {
-        if (prominence[i] >= sensThreshold) {
-          candidates.push({ idx: i, val: prominence[i] });
-        }
-      }
-
-      // Non-Maximum Suppression with distance constraint (minSpacingPx)
-      candidates.sort((a, b) => b.val - a.val);
+      // First pass: Non-maximum suppression using minSpacingPx
+      rawPeaks.sort((a, b) => b.val - a.val);
       let selectedIndices = [];
-      candidates.forEach(p => {
-        const tooClose = selectedIndices.some(existing => Math.abs(existing - p.idx) < minSpacingPx);
+      rawPeaks.forEach(p => {
+        const tooClose = selectedIndices.some(existing => Math.abs(existing - p.idx) < (minSpacingPx * 0.55));
         if (!tooClose) selectedIndices.push(p.idx);
       });
 
       selectedIndices.sort((a, b) => a - b);
 
-      // Map detected indices back to physical pixel coordinates along spine
+      // SECOND PASS: RECONCILE TWIN ENDPLATES (Eliminates double counts!)
+      // If two candidate peaks are closer than 65% of the median vertebra pitch,
+      // they are the anterior & posterior rim of the SAME vertebra. Merge them into their midpoint!
+      if (selectedIndices.length >= 4) {
+        let spacings = [];
+        for (let i = 1; i < selectedIndices.length; i++) {
+          spacings.push(selectedIndices[i] - selectedIndices[i - 1]);
+        }
+        let sortedSpacings = [...spacings].sort((a, b) => a - b);
+        let medianPitch = sortedSpacings[Math.floor(sortedSpacings.length / 2)];
+
+        let mergedIndices = [];
+        for (let i = 0; i < selectedIndices.length; i++) {
+          if (mergedIndices.length > 0 && (selectedIndices[i] - mergedIndices[mergedIndices.length - 1]) < (medianPitch * 0.65)) {
+            // Twin endplates detected! Merge to center of centrum
+            mergedIndices[mergedIndices.length - 1] = Math.round((mergedIndices[mergedIndices.length - 1] + selectedIndices[i]) / 2);
+          } else {
+            mergedIndices.push(selectedIndices[i]);
+          }
+        }
+        selectedIndices = mergedIndices;
+      }
+
+      // Map to physical pixel coordinates along spine
       points = [];
       selectedIndices.forEach(pIdx => {
         let sub = pIdx;
         if (pIdx > 0 && pIdx < n - 1) {
-          const y0 = prominence[pIdx - 1], y1 = prominence[pIdx], y2 = prominence[pIdx + 1];
+          const y0 = bandpass[pIdx - 1], y1 = bandpass[pIdx], y2 = bandpass[pIdx + 1];
           const denom = 2 * (2 * y1 - y0 - y2);
           if (Math.abs(denom) > 1e-4) sub = pIdx + (y0 - y2) / denom;
         }
@@ -713,10 +747,28 @@
         points.push({ x: pt.x, y: pt.y });
       });
 
-      lastProfileData = { raw: prominence, maxVal: Math.max(maxProm, sensThreshold * 1.5), threshold: sensThreshold };
+      lastProfileData = { raw: bandpass, maxVal: p90 * 1.3, threshold };
       renderGraphInspector();
       reclassifyRegions();
       if ($('graphStatus')) $('graphStatus').innerText = `${points.length} Centra Found`;
+    }
+
+    // Manual merge helper for points that are accidentally clustered
+    function mergeExcessivelyClosePoints() {
+      if (points.length < 2) return;
+      saveState();
+      points.sort((a, b) => b.y - a.y);
+      let merged = [];
+      for (let i = 0; i < points.length; i++) {
+        if (merged.length > 0 && Math.hypot(points[i].x - merged[merged.length - 1].x, points[i].y - merged[merged.length - 1].y) < 16) {
+          merged[merged.length - 1].x = (merged[merged.length - 1].x + points[i].x) / 2;
+          merged[merged.length - 1].y = (merged[merged.length - 1].y + points[i].y) / 2;
+        } else {
+          merged.push(points[i]);
+        }
+      }
+      points = merged;
+      reclassifyRegions();
     }
 
     function renderGraphInspector() {
@@ -827,7 +879,7 @@
 
       const k = 1 / scale;
 
-      // Active spline path
+      // Active spine placement line
       if (placementStep === 1 && spineNodes.length) {
         const fullSpline = getArcLengthResampledSpline(spineNodes);
         ctx.beginPath();
@@ -1027,7 +1079,7 @@
     function finishSplinePlacement() {
       if (placementStep !== 1) return;
       if (spineNodes.length < 2) return alert('Place at least 2 nodes.');
-      placementStep = 0; hideBanner(); runProminenceCentrumDetector();
+      placementStep = 0; hideBanner(); runAdaptiveCentrumDetector();
     }
 
     wrapper.addEventListener('dblclick', e => { if (!e.target.closest(UI_SEL) && placementStep === 1) finishSplinePlacement(); });
@@ -1122,7 +1174,6 @@
       reader.readAsText(file);
     }
 
-    // Strictly 4-column CSV: IMAGE_NAME, SEX, PRECAUDAL_COUNT, CAUDAL_COUNT
     function exportCSV() {
       const name = $('specimenIdInput') ? ($('specimenIdInput').value.trim() || imageName) : imageName;
       const sex = getSelectedSex();
